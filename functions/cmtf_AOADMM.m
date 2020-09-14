@@ -60,7 +60,7 @@ for p = 1:P
         gh{p} = @(X,M) tenfun(@(x,m) 1 - x./(m + options.eps_log),X,M); % (in tensor format)
         lscalar{p} = 0; %lower bound for m
         uscalar{p} = Inf; % upper bound for m
-    elseif strcmp(Z.loss_function{p},'IS') % f(x,m)=x/m+log(x/m)-1, x>0,m>0 (Itakura-Saito)
+    elseif strcmp(Z.loss_function{p},'IS') % f(x,m)=x/m+log(m/x)-1, x>0,m>0 (Itakura-Saito)
         if ~valid_nonneg(Z.object{p})
             warning('Using ''%s'' but tensor is not positive', Z.loss_function{p});
         end
