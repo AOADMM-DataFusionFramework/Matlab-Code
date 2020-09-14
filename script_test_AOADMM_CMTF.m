@@ -113,9 +113,6 @@ init_fac = init_coupled_AOADMM_CMTF(Z,'init_options', init_options);
 
 %% set options 
 
-options.traceFMS = false; %for tracing the fms (only for testing, slow)
-options.true_ktensor = true_ktensor; %only needed when options.traceFMS = true
-
 options.Display ='iter'; %  set to 'iter' or 'final' or 'no'
 options.DisplayIters = 10;
 options.MaxOuterIters = 10000;

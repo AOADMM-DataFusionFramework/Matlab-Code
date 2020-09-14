@@ -203,14 +203,6 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
        f_couplings_old = f_couplings;
        f_constraints_old = f_constraints;
        [f_tensors,f_couplings,f_constraints] = CMTF_AOADMM_func_eval(Znorm_const,last_mttkrp,last_had,last_m);
-       if options.traceFMS % for testing only !
-           for p=1:P
-                Zhat{p} = ktensor(G.fac(Z.modes{p}));
-                Zhat{p} = normalize(Zhat{p});
-                factor_match_scores(p) = score(Zhat{p},options.true_ktensor{p});
-           end
-           fms_at_it(iter+1,:) = factor_match_scores;
-       end
        f_total = f_tensors+f_couplings+f_constraints;
        func_val(iter+1) = f_tensors;
        func_coupl(iter+1) = f_couplings;
@@ -236,9 +228,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     out.func_coupl_conv = func_coupl;
     out.func_constr_conv = func_constr;
     out.time_at_it = time_at_it;
-    if options.traceFMS
-        out.fms_at_it = fms_at_it;
-    end
+
     %display final
     if strcmp(options.Display,'iter') || strcmp(options.Display,'final')
         fprintf(1,'%6d %12f %12f %12f %12f\n', iter-1, f_total, f_tensors, f_couplings,f_constraints);
