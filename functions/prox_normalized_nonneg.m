@@ -1,5 +1,5 @@
 function [Y] = prox_normalized_nonneg(X)
-
+% proximal operator for projecting onto the nonnegative unitsphere
     Y = project_box(X,0,inf); % non-negativity
     for r=1:size(Y,2)
         if norm(Y(:,r),2)==0
