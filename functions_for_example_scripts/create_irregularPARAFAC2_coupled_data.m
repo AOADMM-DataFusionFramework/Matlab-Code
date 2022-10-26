@@ -62,12 +62,10 @@ for p=1:P
                 end
             end
             if (strcmp(model{p},'PAR2') && 2 == find(modes{p}==n))
-                %SHIFT PARAFAC
-                AA = A{n};
+                %orthonormal PARAFAC2 matrices Bk
                 A{n} = cell(length(sz{n}),1);
-                A{n}{1} = AA;
-                for k=2:length(sz{n})
-                    A{n}{k} = circshift(AA,k-1);
+                for k=1:length(sz{n})
+                    A{n}{k} = orth(feval(distr_data{n},sz{n}(k),length(lambdas{p})));
                 end
             end
         end

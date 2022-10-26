@@ -70,6 +70,11 @@ for p=1:P
                     A{n}{k} = circshift(AA,k-1);
                 end
             end
+            if n == 6 %generating a simplex
+                for r=1:length(lambdas{p})
+                    A{n}(:,r)=A{n}(:,r)./sum(A{n}(:,r));
+                end
+            end
         end
     end
 end

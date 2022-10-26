@@ -1,4 +1,4 @@
-function  [X, A, Delta,sigma] = create_coupled_data(varargin)
+function  [X, A, Delta,sigma] = create_coupled_data_smoothBks(varargin)
 % CREATE_COUPLED_DATA generates coupled higher-order tensors and matrices -
 % and returns the generated data as a cell array, X, as well as the factors 
 % used to generate these data sets as a cell array, A.
@@ -51,6 +51,8 @@ nb_modes = length(sz);
 
 A = cell(nb_modes,1);
 Delta = cell(nb_modes,1);
+
+
 % generate factor matrices
 for p=1:P
     for n = modes{p}
@@ -62,12 +64,22 @@ for p=1:P
                 end
             end
             if (strcmp(model{p},'PAR2') && 2 == find(modes{p}==n))
-                %SHIFT PARAFAC
-                AA = A{n};
+                %SMOOTH PARAFAC2-components
                 A{n} = cell(length(sz{n}),1);
-                A{n}{1} = AA;
-                for k=2:length(sz{n})
-                    A{n}{k} = circshift(AA,k-1);
+                B = randn(length(lambdas{p}),length(lambdas{p}));
+                szBk = sz{n}(1);
+                x=linspace(-1,1,szBk); 
+                M=[ones(szBk,1),x',x.^2',x.^3'];
+                [Morth,~,~]=svd(M,0);
+                for k=1:length(sz{n})
+                    [Pk,~] = qr(randn(4,length(lambdas{p})),0);
+                    Bk = Pk*B;
+                    A{n}{k} = Morth*Bk;
+                    if normalize_columns
+                        for r=1:length(lambdas{p})
+                            A{n}{k}(:,r)=A{n}{k}(:,r)/norm(A{n}{k}(:,r));
+                        end
+                    end
                 end
             end
         end

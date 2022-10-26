@@ -19,6 +19,7 @@ normalize  = params.Results.init_options.normalize;
 nvecs      = params.Results.init_options.nvecs;
 modes      = Z.modes;   % how the data sets are grouped
 coupling   = Z.coupling;   % how the modes sets are coupled
+model      = Z.model;
 constrained_modes = Z.constrained_modes; % which factors are constrained
 prox_operators = Z.prox_operators;
 
@@ -45,27 +46,76 @@ A.constraint_dual_fac = cell(nb_modes,1);
 for p=1:P
     for n = modes{p}
         if nvecs % use singular vectors for initialization for each mode separately, even if the coupling is exact!
-            A.fac{n} = cmtf_nvecs(Z,n,length(lambdas{p}));
+            if strcmp(model{p},'CP')
+                A.fac{n} = cmtf_nvecs(Z,n,length(lambdas{p}));
+            elseif strcmp(model{p},'PAR2')
+                if 1 == find(modes{p}==n)
+                    M = [];
+                    for k=1:length(sz{modes{p}(2)})
+                        M = [M,Z.object{p}{k}];
+                    end
+                    Y = M*M';
+                    [A.fac{n},~] = eigs(Y, length(lambdas{p}), 'LM');
+                elseif 2 == find(modes{p}==n)
+                    A.DeltaB{p} = rand(length(lambdas{p}),length(lambdas{p}));
+                    for k=1:length(sz{n})
+                        M = Z.object{p}{k}';
+                        Y = M*M';
+                        [A.fac{n}{k},~] = eigs(Y, length(lambdas{p}), 'LM');
+                        A.P{p}{k} = eye(sz{n}(k),length(lambdas{p}));
+                        A.mu_DeltaB{p}{k} = rand(sz{n}(k),length(lambdas{p}));
+                    end
+                else % mode C
+                    A.fac{n} = ones(sz{n},length(lambdas{p}));
+                end
+            end
         else % use random initilaization given by distr
-            A.fac{n} = feval(distr{n},sz(n),length(lambdas{p}));
-            if normalize
-                for r=1:length(lambdas{p})
-                    A.fac{n}(:,r)=A.fac{n}(:,r)/norm(A.fac{n}(:,r));
+            if (strcmp(model{p},'PAR2') && 2 == find(modes{p}==n))
+                A.DeltaB{p} = rand(length(lambdas{p}),length(lambdas{p}));
+                for k=1:length(sz{n})
+                    A.fac{n}{k} = feval(distr{n},sz{n}(k),length(lambdas{p}));
+                    A.P{p}{k} = eye(sz{n}(k),length(lambdas{p}));
+                    A.mu_DeltaB{p}{k} = rand(sz{n}(k),length(lambdas{p}));
+                    if normalize
+                        for r=1:length(lambdas{p})
+                            A.fac{n}{k}(:,r)=A.fac{n}{k}(:,r)/norm(A.fac{n}{k}(:,r));
+                        end
+                    end
+                end
+            else %CP model
+                A.fac{n} = feval(distr{n},sz{n},length(lambdas{p}));
+                if normalize
+                    for r=1:length(lambdas{p})
+                        A.fac{n}(:,r)=A.fac{n}(:,r)/norm(A.fac{n}(:,r));
+                    end
                 end
             end
         end
     end 
 end
 
-for n = 1:nb_modes    
-    if constrained_modes(n)
-        A.constraint_fac{n} = feval(distr{n},size(A.fac{n},1),size(A.fac{n},2));
-        if isempty(prox_operators{n})
-            error('No proximal operator provided for mode %s.',num2str(n));
+for p=1:P
+    for n = modes{p}    
+        if constrained_modes(n)
+            if (strcmp(model{p},'PAR2') && 2 == find(modes{p}==n))
+                for k=1:length(sz{n})
+                    A.constraint_fac{n}{k} = feval(distr{n},size(A.fac{n}{k},1),size(A.fac{n}{k},2));
+                    if isempty(prox_operators{n})
+                        error('No proximal operator provided for mode %s.',num2str(n));
+                    end
+                    A.constraint_fac{n}{k} = feval(prox_operators{n},A.constraint_fac{n}{k},1);
+                    A.constraint_dual_fac{n}{k} = rand(size(A.fac{n}{k}));
+                end
+           else
+                A.constraint_fac{n} = feval(distr{n},size(A.fac{n},1),size(A.fac{n},2));
+                if isempty(prox_operators{n})
+                    error('No proximal operator provided for mode %s.',num2str(n));
+                end
+                A.constraint_fac{n} = feval(prox_operators{n},A.constraint_fac{n},1);
+                A.constraint_dual_fac{n} = rand(size(A.fac{n}));
+            end 
         end
-        A.constraint_fac{n} = feval(prox_operators{n},A.constraint_fac{n},1);
-        A.constraint_dual_fac{n} = rand(size(A.fac{n}));
-    end 
+    end
 end
 
 

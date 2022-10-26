@@ -1,4 +1,4 @@
-function [] = check_data_input(sz,modes,lambdas,coupling)
+function [] = check_data_input(sz,modes,lambdas,coupling,loss_function,model)
 %checks if all dimensions for coupling match each other
 
 lin_coupled_modes = coupling.lin_coupled_modes;
@@ -13,6 +13,23 @@ end
 nb_couplings = max(lin_coupled_modes);
 if nb_couplings ~= length(coupling_type)
     error('Mismatch between number of coulings and coupling types')
+end
+
+for p = 1:length(lambdas)
+    if (strcmp(model{p},'PAR2') && sz{modes{p}(3)}~=length(sz{modes{p}(2)}))
+        error('size mismatch in PARAFAC2 model betwwen mode C and Bk')
+    end
+end
+
+for p = 1:length(lambdas)
+    if (strcmp(model{p},'PAR2') && ~strcmp(loss_function{p},'Frobenius'))
+        error('Parafac2 decomposition only implemented for Frobenius norm loss.')
+    end
+    if (strcmp(model{p},'PAR2') && lin_coupled_modes(modes{p}(2)))
+        error('Coupling in 2. mode (the varying mode) of Parafac2 decomposition not supported.')
+    elseif(strcmp(model{p},'PAR2') && lin_coupled_modes(modes{p}(3)))
+        error('Coupling in 3. mode (C mode) of Parafac2 decomposition not yet supported.')
+    end
 end
 
 for p = 1:length(lambdas)
@@ -31,7 +48,7 @@ for p = 1:length(lambdas)
                         warning('Coupling matrix for mode %s will not be considered, because the mode is exactly coupled.', num2str(m))
                     end
                     for n=mode_ids
-                        if (n~=m && sz(m)~=sz(n))
+                        if (n~=m && sz{m}~=sz{n})
                             error('Coupled factor matrices of mode %s and mode %s need to have same number of rows.', num2str(m),num2str(n))
                         end
                         if (n~=m && length(lambdas{p}) ~= length(lambdas{cellfun(@(x) any(ismember(x,n)), modes)}))
@@ -45,7 +62,7 @@ for p = 1:length(lambdas)
                     if rank(coupl_trafo_matrices{m})<size(coupl_trafo_matrices{m},1)
                         error('Coupling matrix for mode %s is not right-invertible.', num2str(m))
                     end
-                    if size(coupl_trafo_matrices{m},2) ~= sz(m) 
+                    if size(coupl_trafo_matrices{m},2) ~= sz{m} 
                         error('Mismatch between sz and number of columns of coupling matrix for mode %s.', num2str(m))
                     end
                     for n=mode_ids
@@ -64,7 +81,7 @@ for p = 1:length(lambdas)
                         error('Mismatch between lambdas and number of rows of coupling matrix for mode %s.', num2str(m))
                     end
                     for n=mode_ids
-                        if (n~=m && sz(m)~=sz(n))
+                        if (n~=m && sz{m}~=sz{n})
                             error('Coupled factor matrices of mode %s and mode %s need to have same number of rows.', num2str(m),num2str(n))
                         end
                         if (n~=m && size(coupl_trafo_matrices{m},2) ~=size(coupl_trafo_matrices{n},2))
@@ -78,7 +95,7 @@ for p = 1:length(lambdas)
                     if isempty(coupl_trafo_matrices{m})
                         error('Coupling matrix for mode %s is missing.', num2str(m))
                     end
-                    if size(coupl_trafo_matrices{m},1) ~= sz(m) 
+                    if size(coupl_trafo_matrices{m},1) ~= sz{m} 
                         error('Mismatch between sz and number of rows of coupling matrix for mode %s.', num2str(m))
                     end
                     for n=mode_ids
@@ -98,7 +115,7 @@ for p = 1:length(lambdas)
                         error('Mismatch between lambdas and number of columns of coupling matrix for mode %s.', num2str(m))
                     end
                     for n=mode_ids
-                        if (n~=m && sz(m)~=sz(n))
+                        if (n~=m && sz{m}~=sz{n})
                             error('Coupled factor matrices of mode %s and mode %s need to have same number of rows.', num2str(m),num2str(n))
                         end
                         if (n~=m && size(coupl_trafo_matrices{m},1) ~=size(coupl_trafo_matrices{n},1))

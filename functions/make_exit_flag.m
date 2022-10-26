@@ -1,4 +1,4 @@
-function [exit_flag] = make_exit_flag(iter,f_tensors,f_couplings,f_constraints,options)
+function [exit_flag] = make_exit_flag(iter,f_tensors,f_couplings,f_constraints,f_PAR2_couplings,options)
 % which condition caused stop?
 
 if iter>options.MaxOuterIters
@@ -18,6 +18,11 @@ else
         exit_flag.f_constraints = "AbsFuncTol";
     else
         exit_flag.f_constraints = "RelFuncTol";
+    end
+    if f_PAR2_couplings < options.AbsFuncTol
+        exit_flag.f_PAR2_couplings = "AbsFuncTol";
+    else
+        exit_flag.f_PAR2_couplings = "RelFuncTol";
     end
 end
    
