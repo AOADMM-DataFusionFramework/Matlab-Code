@@ -89,10 +89,12 @@ for i=1:nb_c_modes
                     A{mode1}(:,r)=A{mode1}(:,r)/norm(A{mode1}(:,r)); %normalizing columns
                 end
             end
-            for j=cp_modes(2:end)%initialize as same
+            for j=setdiff(cp_modes,mode1)%initialize as same
                 A{j} = A{mode1};
             end
         case 1
+            [~,maxidx]=max(cell2mat(sz(cp_modes)));
+            mode1 = cp_modes(maxidx);
             A{mode1} = feval(distr_data{mode1},sz{mode1},length(lambdas{p_mode1}));
             if normalize_columns
                 for r=1:size(A{mode1},2)
@@ -100,7 +102,7 @@ for i=1:nb_c_modes
                 end
             end
             Delta{i} = coupl_trafo_matrices{mode1}*A{mode1};
-            for j=cp_modes(2:end)
+            for j=setdiff(cp_modes,mode1)
                 A{j} = pinv(coupl_trafo_matrices{j})* Delta{i};
             end
            
@@ -180,3 +182,4 @@ for p = 1:P
     end
 end
 
+>>>>>>> 2bf4cac8ae37d64b27fecf08c682e2f7c1a341e3
