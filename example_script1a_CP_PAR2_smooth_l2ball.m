@@ -20,6 +20,7 @@ addpath(genpath('...\tensor_toolbox-v3.1')) %Tensor toolbox is needed!  MATLAB T
 addpath(genpath('...\L-BFGS-B-C-master')) % LBFGS-B implementation only needed when other loss than Frobenius is used, download here: https://github.com/stephenbeckr/L-BFGS-B-C
 addpath(genpath('...\proximal_operators\code\matlab')) % Proximal operator repository needed! download here: http://proximity-operator.net/proximityoperator.html
 addpath(genpath('.\functions')) 
+addpath(genpath('.\functions_for_example scripts')) 
 %% specify synthetic data
 sz     = {30,20,50,30,200*ones(1,30),30}; %size of each mode
 P      = 2; %number of tensors
