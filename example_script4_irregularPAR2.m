@@ -11,7 +11,8 @@ addpath(genpath('.\functions'))
 addpath(genpath('...\tensor_toolbox-v3.1')) %Tensor toolbox is needed!  MATLAB Tensor Toolbox. Copyright 2017, Sandia Corporation, http://www.tensortoolbox.org/
 addpath(genpath('...\L-BFGS-B-C-master')) % LBFGS-B implementation only needed when other loss than Frobenius is used, download here: https://github.com/stephenbeckr/L-BFGS-B-C
 addpath(genpath('...\proximal_operators\code\matlab')) % Proximal operator repository needed! download here: http://proximity-operator.net/proximityoperator.html
-addpath(genpath('.\functions')) 
+addpath(genpath('.\functions'))
+addpath(genpath('.\functions_for_example_scripts'))
 %% specify synthetic data
 sz     = {40,[61:1:120],60}; %size of each mode
 P      = 1; %number of tensors
@@ -89,6 +90,7 @@ Z.weights = weights;
 %% create data
 [X, Atrue, Deltatrue,sigmatrue] = create_irregularPARAFAC2_coupled_data('model', model, 'size', sz, 'modes', modes, 'lambdas', lambdas_data, 'noise', noise,'coupling',coupling,'normalize_columns',normalize_columns,'distr_data',distr_data,'loss_function',Z.loss_function); %create data
 %% create Z.object and normalize
+normZ=cell(P,1);
 for p=1:P
     Z.object{p} = X{p};
     if strcmp(model{p},'CP')
@@ -97,8 +99,9 @@ for p=1:P
     elseif strcmp(model{p},'PAR2')
         normZ{p} = 0;
         for k=1:length(Z.object{p})
-            normZ{p} = normZ{p} + norm(Z.object{p}{k},'fro');
+            normZ{p} = normZ{p} + norm(Z.object{p}{k},'fro')^2;
         end
+        normZ{p} = sqrt(normZ{p});
         for k=1:length(Z.object{p})
             Z.object{p}{k} = Z.object{p}{k}/normZ{p};
         end

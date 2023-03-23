@@ -102,6 +102,7 @@ Z.weights = weights;
 %% create data
 [X, Atrue, Deltatrue,sigmatrue] = create_coupled_data('model', model, 'size', sz, 'modes', modes, 'lambdas', lambdas_data, 'noise', noise,'coupling',coupling,'normalize_columns',normalize_columns,'distr_data',distr_data,'loss_function',Z.loss_function); %create data
 %% create Z.object and normalize
+normZ=cell(P,1);
 for p=1:P
     Z.object{p} = X{p};
     if strcmp(model{p},'CP')
@@ -110,8 +111,9 @@ for p=1:P
     elseif strcmp(model{p},'PAR2')
         normZ{p} = 0;
         for k=1:length(Z.object{p})
-            normZ{p} = normZ{p} + norm(Z.object{p}{k},'fro');
+            normZ{p} = normZ{p} + norm(Z.object{p}{k},'fro')^2;
         end
+        normZ{p} = sqrt(normZ{p});
         for k=1:length(Z.object{p})
             Z.object{p}{k} = Z.object{p}{k}/normZ{p};
         end

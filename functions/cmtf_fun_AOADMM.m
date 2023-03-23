@@ -64,9 +64,12 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
         end
     end
 
+    s = warning('error', 'MATLAB:nearlySingularMatrix');
+    illconditioned = 0;
+    
     stop = false;
     while(iter<=options.MaxOuterIters && ~stop)    
-        
+        try
         for coupl_id=couplings %loop over all couplings (and non-coupled modes, if couplings=0)
             coupled_modes = find(Z.coupling.lin_coupled_modes==coupl_id); % all modes with this coupling_id
             for p=unique(which_p(coupled_modes)) % loop over all coupled tensors for this coupling_id (can be done in parallel!)
@@ -336,9 +339,14 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             fprintf(1,'%6d %12f %12f %12f %17f %12f\n', iter, f_total, f_tensors, f_couplings,f_constraints,f_PAR2_couplings);
         end
         iter = iter+1;
+        
+        catch
+            illconditioned = 1;
+            break
+        end
     end
     % which condition caused stop?
-    exit_flag = make_exit_flag(iter,f_tensors,f_couplings,f_constraints,f_PAR2_couplings,options);
+    exit_flag = make_exit_flag(iter,f_tensors,f_couplings,f_constraints,f_PAR2_couplings,options,illconditioned);
     %save output
     out.f_tensors = f_tensors;
     out.f_couplings = f_couplings;
@@ -358,7 +366,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
         fprintf(1,'%6d %12f %12f %12f %12f %12f\n', iter-1, f_total, f_tensors, f_couplings,f_constraints,f_PAR2_couplings);
     end
     
-    
+   warning(s); 
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%% NESTED FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [inner_iter] = ADMM_B_Parafac2(A,L,m,p,rho,options)
