@@ -1055,9 +1055,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
         %updates G.constraint_fac{mm} and G.constraint_dual_fac{mm}
         oldZ = G.constraint_fac{m};
         if length(rho)>1 % if it is the third mode (C,D_k) of Parafac2 model (2ns mode(B_k) is handled in own function)
-            for kk=1:length(rho)
-                G.constraint_fac{m}(kk,:) = (feval(Z.prox_operators{m},(G.fac{m}(kk,:) + G.constraint_dual_fac{m}(kk,:)),rho(kk))); %PROBLEM IF prox_operator is given columnwise! (doesn't make sense for D_k)
-            end
+            G.constraint_fac{m} = feval(Z.prox_operators{m},(G.fac{m} + G.constraint_dual_fac{m}),max(rho));
         else
             G.constraint_fac{m} = feval(Z.prox_operators{m},(G.fac{m} + G.constraint_dual_fac{m}),rho);
         end
