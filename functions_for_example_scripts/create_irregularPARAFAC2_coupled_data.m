@@ -1,4 +1,4 @@
-function  [X, A, Delta,sigma] = create_coupled_data(varargin)
+function  [X, A, Delta,sigma] = create_irregularPARAFAC2_coupled_data(varargin)
 % CREATE_COUPLED_DATA generates coupled higher-order tensors and matrices -
 % and returns the generated data as a cell array, X, as well as the factors 
 % used to generate these data sets as a cell array, A.
