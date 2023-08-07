@@ -4,6 +4,9 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     if isfield(options,'lbfgsb_options')
         lbfgsb_options = options.lbfgsb_options;
     end
+    if ~isfield(options,'iter_start_PAR2Bkconstraint')
+        options.iter_start_PAR2Bkconstraint = 0;
+    end
     couplings = unique(Z.coupling.lin_coupled_modes);
     nb_modes  = length(Z.size);
     which_p = zeros(1,nb_modes);
@@ -177,6 +180,9 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                                 A{m}{k} = Z.weights(p)*Z.object{p}{k}'*G.fac{Z.modes{p}(1)}*diag(G.fac{Z.modes{p}(3)}(k,:));
                                 C{m}{k} = diag(G.fac{Z.modes{p}(3)}(k,:))*G_transp_G{Z.modes{p}(1)}*diag(G.fac{Z.modes{p}(3)}(k,:));
                                 rho{m}(k) = trace(C{m}{k})/size(C{m}{k},1);
+                                if isfield(options, 'increase_factor_rhoBk')
+                                    rho{m}(k) = options.increase_factor_rhoBk * rho{m}(k);
+                                end
                                 B{m}{k} = Z.weights(p)* C{m}{k};
                                 B{m}{k} = B{m}{k} + rho{m}(k)/2*eye(size(B{m}{k})); %always coupled 
                                 if isfield(Z,'ridge')
@@ -187,7 +193,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                                     B{m}{k} = B{m}{k} + options.bsum_weight/2*eye(size(B{m}{k}));
                                 end
                                 last_m(p) = 2;
-                                if Z.constrained_modes(m)
+                                if Z.constrained_modes(m) && iter >= options.iter_start_PAR2Bkconstraint
                                     B{m}{k} = B{m}{k} + rho{m}(k)/2*eye(size(B{m}{k}));
                                 end
                                 L{m}{k} = chol(B{m}{k},'lower'); %precompute Cholesky decomposition 
@@ -342,6 +348,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
         
         catch
             illconditioned = 1;
+            fprintf('Stopped due to illconditioned linear system')
             break
         end
     end
@@ -387,7 +394,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             rel_dual_res_coupling = 0;
             for kk=1:length(Z.size{Z.modes{p}(2)})
                 A_inner{kk} = A{kk} + rho(kk)/2*(G.P{p}{kk}*G.DeltaB{p} - G.mu_DeltaB{p}{kk});
-                if Z.constrained_modes(m)
+                if Z.constrained_modes(m) && iter >= options.iter_start_PAR2Bkconstraint
                     A_inner{kk} = A_inner{kk} + rho(kk)/2*(G.constraint_fac{m}{kk} - G.constraint_dual_fac{m}{kk});
                 end
                 G.fac{m}{kk} = (A_inner{kk}/L{kk}')/L{kk}; % forward-backward substitution
@@ -411,7 +418,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             
             % Update constraint factor (Z_B) and its dual (mu_Z_B) if
             % constrained
-            if Z.constrained_modes(m)
+            if Z.constrained_modes(m) && iter >= options.iter_start_PAR2Bkconstraint
                 oldZ = G.constraint_fac{m};
                 for kk=1:length(Z.size{Z.modes{p}(2)})
                     G.constraint_fac{m}{kk} = feval(Z.prox_operators{m},(G.fac{m}{kk} + G.constraint_dual_fac{m}{kk}),rho(kk));

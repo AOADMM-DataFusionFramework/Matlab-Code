@@ -1,7 +1,11 @@
-%%  example script 4 AOADMM for CMTF 
-% In this example, we create a synthetic ragged PARAFAC2 tensor
-% of order 3 (modes 1,2,3) and size [40,[61:1:120],60] with 3 components  We add
-% Gaussian noise with level 0.2 and use Frobenius norm loss.
+%%  example script 9 AOADMM for CMTF 
+% In this example, we create a synthetic regular PARAFAC2 tensor
+% of order 3 (modes 1,2,3) and size [10,50,15] with 3 components. The factor vectors of mode Bk are created as (unimodal) gaussian functions.
+% We add Gaussian noise with level 0.2 and use Frobenius norm loss.  
+% The varying mode B is constrained to be unimodal and the mode C is constrained to be nonnegative.
+% This is a difficult problem and some tricks are needed to help the
+% algorithm converge, for this see the additional (optional) options set further down
+% in this example script.
 %%
 close all
 clear all
@@ -13,12 +17,12 @@ addpath(genpath('...\L-BFGS-B-C-master')) % LBFGS-B implementation only needed w
 addpath(genpath('...\proximal_operators\code\matlab')) % Proximal operator repository needed! download here: http://proximity-operator.net/proximityoperator.html
 addpath(genpath('.\functions_for_example_scripts'))
 %% specify synthetic data
-sz     = {40,[61:1:120],60}; %size of each mode
+sz     = {10,50*ones(1,15),15}; %size of each mode
 P      = 1; %number of tensors
 lambdas_data= {[1 1 1]}; % norms of components in each data set (length of each array specifies the number of components in each dataset)
 modes  = {[1 2 3]}; % which modes belong to which dataset: every mode should have its unique number d, sz(d) corresponds to size of that mode
 noise = 0.2; %level of noise, for gaussian noise only!
-distr_data = {@(x,y) randn(x,y), @(x,y) randn(x,y),@(x,y) rand(x,y)+0.1}; % function handle of distribution of data within each factor matrix /or Delta if linearly coupled, x,y are the size inputs %coupled modes need to have same distribution! If not, just the first one will be considered
+distr_data = {@(x,y) randn(x,y), @(x,y) rand(x,y),@(x,y) rand(x,y)+0.1}; % function handle of distribution of data within each factor matrix /or Delta if linearly coupled, x,y are the size inputs %coupled modes need to have same distribution! If not, just the first one will be considered
 normalize_columns = 0; %wether or not to normalize columns of the created factor matrices, this might destroy the distribution!
 %% specify tensor model
 model{1} = 'PAR2';
@@ -26,8 +30,6 @@ model{1} = 'PAR2';
 coupling.lin_coupled_modes = [0 0 0]; % which modes are coupled, coupled modes get the same number (0: uncoupled)
 coupling.coupling_type = []; % for each coupling number in the array lin_coupled_modes, set the coupling type: 0 exact coupling, 1: HC=Delta, 2: CH=Delta, 3: C=HDelta, 4: C=DeltaH
 coupling.coupl_trafo_matrices = cell(3,1); % cell array with coupling transformation matrices for each mode (if any, otherwise keep empty)
-
-
 %% set the fitting function for each dataset: 'Frobenius' for squared
 % Frobenius norm, 'KL' for KL divergence, IS for Itakura-Saito, 'beta' for other beta divergences (give beta in loss_function_param),...more todo
 loss_function{1} = 'Frobenius';
@@ -42,7 +44,7 @@ init_options.distr =distr_data; % distribution of the initial factor matrices an
 init_options.normalize = 1; % wether or not to normalize the columns of the initial factor matrices (might destroy the distribution)
 
 %% set constraints
-constrained_modes = [0 0 1]; % 1 if the mode is constrained in some way, 0 otherwise, put the same for coupled modes!
+constrained_modes = [0 1 1]; % 1 if the mode is constrained in some way, 0 otherwise, put the same for coupled modes!
 prox_operators = cell(3,1); % cell array of length number of modes containing the function handles of proximal operator for each mode, empty if no constraint
 % provide proximal operators for each constrained mode (operator should be a function, operating on the whole factor matrix, not just a single column)
 % examples using functions from the Proximity Operator Repository:
@@ -60,8 +62,8 @@ prox_operators = cell(3,1); % cell array of length number of modes containing th
 % 11) column-wise l2 regularization (f(x)=eta*||x||_2) : @(x,rho) prox_L2(x, eta/rho, 1)
 % 12) quadratic smoothness regularization on factor matrix (f(X)=eta*||DX||_F^2): @(x,rho) (2*eta/rho*D'*D+eye(size(x)))\x
 
+prox_operators{2} = @(x,rho) project_unimodal(x,false); % unimodal regression of columns in x, with or without non-negativity constraint (true,false)
 prox_operators{3} = @(x,rho) project_box(x,0,inf); % non-negativity
-
 %% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty)
 %Z.ridge = [1e-3,1e-3,1e-3,1e-3,1e-3,1e-3]; % penalties for each mode 
 %% set weights
@@ -87,7 +89,7 @@ Z.prox_operators = prox_operators;
 Z.weights = weights;
 
 %% create data
-[X, Atrue, Deltatrue,sigmatrue] = create_irregularPARAFAC2_coupled_data('model', model, 'size', sz, 'modes', modes, 'lambdas', lambdas_data, 'noise', noise,'coupling',coupling,'normalize_columns',normalize_columns,'distr_data',distr_data,'loss_function',Z.loss_function); %create data
+[X, Atrue, Deltatrue,sigmatrue] = create_coupled_data_unimodalBks('model', model, 'size', sz, 'modes', modes, 'lambdas', lambdas_data, 'noise', noise,'coupling',coupling,'normalize_columns',normalize_columns,'distr_data',distr_data,'loss_function',Z.loss_function); %create data
 %% create Z.object and normalize
 normZ=cell(P,1);
 for p=1:P
@@ -114,8 +116,8 @@ init_fac = init_coupled_AOADMM_CMTF(Z,'init_options', init_options);
 
 options.Display ='iter'; %  set to 'iter' or 'final' or 'no'
 options.DisplayIters = 10;
-options.MaxOuterIters = 4000;
-options.MaxInnerIters = 5;
+options.MaxOuterIters = 2000;
+options.MaxInnerIters = 20;
 options.AbsFuncTol   = 1e-7;
 options.OuterRelTol = 1e-8;
 options.innerRelPrTol_coupl = 1e-5;
@@ -127,6 +129,9 @@ options.bsum = 0; % wether or not to use AO with BSUM regularization
 options.eps_log = 1e-10; % for KL divergence log(x+eps) for numerical stability
 %options.lbfgsb_options = lbfgsb_options;
 
+%% set additional (optional) options for diificult constraints/regularizations on mode Bk of PARAFAC2
+options.iter_start_PAR2Bkconstraint = 100; % set the number of iterations after which the constraint on Bk will be active 
+options.increase_factor_rhoBk = 10; % set the factor by which the automatically selected value of rho_Bk is increased
 %% run algorithm
 fprintf('AOADMM cmtf \n')
 tic
@@ -152,6 +157,7 @@ for k=1:length(sz{2})
     largeB = [largeB;Atrue{2}{k}];
 end
 FMS_B = score(ktensor(ones(3,1),SollargeB),ktensor(ones(3,1),largeB),'lambda_penalty',false);
+
 %% convergence plot
 figure()
 subplot(1,3,1)
@@ -185,7 +191,26 @@ xlabel('outer iteration')
 ylabel('inner iterations')
 legend('mode 1', 'mode 2','mode 3')
 sgtitle('convergence AO-ADMM')
-
+%%
+for k=1:3
+    figure()
+    [fmsB1,Atrue_normalized] = score(ktensor(ones(3,1),Atrue{2}{k}),ktensor(ones(3,1),Zhat{1}.Bk{k}),'lambda_penalty',false);
+    for r=1:3
+        subplot(1,3,r)
+        plot(Atrue_normalized.U{1}(:,r),'Color','black');
+        hold on
+        plot(Zhat{1}.Bk{k}(:,r),'Color','red','LineStyle','--');
+        if r==1
+            ylabel('$[\textbf{B}_k]_1$','Interpreter','latex','FontSize',20);
+        elseif r==2
+            ylabel('$[\textbf{B}_k]_2$','Interpreter','latex','FontSize',20);
+        elseif r==3
+            ylabel('$[\textbf{B}_k]_3$','Interpreter','latex','FontSize',20);
+        end
+    end
+    legend('true','estimated')
+    sgtitle(['k=',num2str(k)])
+end
 
 
 

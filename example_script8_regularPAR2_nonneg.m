@@ -1,4 +1,4 @@
-%%  example script 4 AOADMM for CMTF 
+%%  example script 8 AOADMM for CMTF 
 % In this example, we create a synthetic regular PARAFAC2 tensor
 % of order 3 (modes 1,2,3) and size [40,120,60] with 3 components  We add
 % Gaussian noise with level 0.2 and use Frobenius norm loss.  
@@ -12,7 +12,6 @@ addpath(genpath('.\functions'))
 addpath(genpath('...\tensor_toolbox-v3.1')) %Tensor toolbox is needed!  MATLAB Tensor Toolbox. Copyright 2017, Sandia Corporation, http://www.tensortoolbox.org/
 addpath(genpath('...\L-BFGS-B-C-master')) % LBFGS-B implementation only needed when other loss than Frobenius is used, download here: https://github.com/stephenbeckr/L-BFGS-B-C
 addpath(genpath('...\proximal_operators\code\matlab')) % Proximal operator repository needed! download here: http://proximity-operator.net/proximityoperator.html
-addpath(genpath('.\functions'))
 addpath(genpath('.\functions_for_example_scripts'))
 %% specify synthetic data
 sz     = {40,120*ones(1,60),60}; %size of each mode
