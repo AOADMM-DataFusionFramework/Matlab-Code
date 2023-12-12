@@ -64,7 +64,10 @@ prox_operators = cell(3,1); % cell array of length number of modes containing th
 
 prox_operators{2} = @(x,rho) project_unimodal(x,false); % unimodal regression of columns in x, with or without non-negativity constraint (true,false)
 prox_operators{3} = @(x,rho) project_box(x,0,inf); % non-negativity
-%% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty)
+%% set regularization functions for each mode (corresponding to proximal operator for that mode) that should be included in the function value computation (optional)
+%Z.reg_func = cell(6,1); % cell array of length number of modes containing the function handles of regularization functions for each mode, empty if no regularization; function should operate on the whole matrix
+%Z.reg_func{1} =  @(x) 
+%% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty), will automatically be added to function value computation
 %Z.ridge = [1e-3,1e-3,1e-3,1e-3,1e-3,1e-3]; % penalties for each mode 
 %% set weights
 weights = [1]; %weight w_i for each data set

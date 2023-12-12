@@ -83,8 +83,10 @@ prox_operators{1} = @(x,rho) project_L2(x, 1, 1);  % unit-l2-ball constraint (no
 prox_operators{4} = @(x,rho) project_L2(x, 1, 1);  % unit-l2-ball constraint (normalization)
 prox_operators{5} = @(x,rho) (2*smooth_penalty/rho.*L+I)\x; %smoothness regularization
 prox_operators{6} = @(x,rho) project_L2(project_box(x,0,inf),1,1); % non-negativity and unit-l2-ball
-
-%% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty)
+%% set regularization functions for each mode (corresponding to proximal operator for that mode) that should be included in the function value computation (optional)
+Z.reg_func = cell(6,1); % cell array of length number of modes containing the function handles of regularization functions for each mode, empty if no regularization; function should operate on the whole matrix
+Z.reg_func{5} =  @(x) smooth_penalty*trace(x'*L*x);  % for smoothness regularization (f(x) = smooth_penalty*trace(x^T*L*x)
+%% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty), will automatically be added to function value computation
 %Z.ridge = [1e-3,1e-3,1e-3,1e-3,1e-3,1e-3]; % penalties for each mode 
 %% set weights
 weights = [1/2 1/2]; %weight w_i for each data set

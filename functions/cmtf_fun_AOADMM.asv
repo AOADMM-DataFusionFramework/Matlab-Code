@@ -962,13 +962,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
         
         if isfield(Z,'ridge')
              for n = 1:nb_modes
-                 if iscell(G.constraint_fac{n}) %PAR2 2nd mode
-                        for kk=1:length(G.constraint_fac{n})
-                            f_tensors = f_tensors + Z.ridge(n)*norm(G.fac{n}{kk},'fro')^2;
-                        end
-                 else
-                    f_tensors = f_tensors + Z.ridge(n)*norm(G.fac{n},'fro')^2;
-                 end
+                 f_tensors = f_tensors + Z.ridge(n)*norm(G.fac{n},'fro
              end
         end
 

@@ -48,9 +48,7 @@ init_options.normalize = 1; % wether or not to normalize the columns of the init
 
 %% set constraints
 constrained_modes = [1 1 1]; % 1 if the mode is constrained in some way, 0 otherwise, put the same for coupled modes!
-constrained_modes2 = [0 0 0];
 prox_operators = cell(3,1); % cell array of length number of modes containing the function handles of proximal operator for each mode, empty if no constraint
-prox_operators2 = cell(3,1);
 % provide proximal operators for each constrained mode (operator should be a function, operating on the whole factor matrix, not just a single column)
 % examples using functions from the Proximity Operator Repository:
 % 1) Non-negativity: @(x,rho) project_box(x,0,inf);
@@ -70,7 +68,10 @@ prox_operators2 = cell(3,1);
 prox_operators{1} = @(x,rho) prox_TV(x,0.001/rho); % total variation regularization (f(x) = eta*(sum_{n=1}^{N-1} |x[n+1]-x[n]|)): @(x,rho) prox_TV(x,eta/rho), download function here: https://lcondat.github.io/software.html
 prox_operators{2} = @(x,rho) project_L2(x,1); % L2-norm ball constraint
 prox_operators{3} = @(x,rho) project_L2(x,1); % L2-norm ball constraint
-%% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty)
+%% set regularization functions for each mode (corresponding to proximal operator for that mode) that should be included in the function value computation (optional)
+Z.reg_func = cell(3,1); % cell array of length number of modes containing the function handles of regularization functions for each mode, empty if no regularization; function should operate on the whole matrix
+Z.reg_func{1} =  @(x) 0.001*sum(abs(x(2:end,:)-x(1:end-1,:)),'all'); % for total variation regularization (f(x) = eta*(sum_{n=1}^{N-1} |x[n+1]-x[n]|))
+%% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty), will automatically be added to function value computation
 %Z.ridge = [1e-3,1e-3,1e-3,1e-3,1e-3,1e-3]; % penalties for each mode 
 %% set weights
 weights = [1]; %weight w_i for each data set

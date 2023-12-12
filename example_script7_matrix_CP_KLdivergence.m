@@ -66,8 +66,10 @@ prox_operators = cell(5,1); % cell array of length number of modes containing th
 % 10) l0 sparsity regularization (f(x)=eta*||x||_0): @(x,rho) prox_zero(x,eta/rho*ones(size(x))) (not convex!!!)
 % 11) column-wise l2 regularization (f(x)=eta*||x||_2) : @(x,rho) prox_L2(x, eta/rho, 1)
 % 12) quadratic smoothness regularization on factor matrix (f(X)=eta*||DX||_F^2): @(x,rho) (2*eta/rho*D'*D+eye(size(x)))\x
-
-%% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty)
+%% set regularization functions for each mode (corresponding to proximal operator for that mode) that should be included in the function value computation (optional)
+%Z.reg_func = cell(5,1); % cell array of length number of modes containing the function handles of regularization functions for each mode, empty if no regularization; function should operate on the whole matrix
+%Z.reg_func{1} =  @(x) 
+%% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty), will automatically be added to function value computation
 %Z.ridge = [1e-3,1e-3,1e-3,1e-3,1e-3,1e-3]; % penalties for each mode 
 %% set weights
 weights = [1/2 1/2]; %weight w_i for each data set
