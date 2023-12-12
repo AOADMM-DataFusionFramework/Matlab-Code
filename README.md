@@ -1,7 +1,7 @@
 # Matlab-Code
 
-This repository contains code for fitting coupled matrix and tensor factorizations with regularizations and linear couplings. The algorithm utilizes Alternating Optimization (AO) and Alternating Direction Method of Multipliers (ADMM). It is described in the paper "A Flexible Optimization Framework for Regularized Matrix-Tensor Factorizations with Linear Couplings" by C. Schenker, J. E. Cohen and E. Acar, 2020, available at https://ieeexplore.ieee.org/document/9298877, or http://arxiv.org/abs/2007.09605.
-The coupling with PARAFAC2 models is described in https://arxiv.org/abs/2210.13054.
+This repository contains code for fitting coupled matrix and tensor factorizations with regularizations and linear couplings. The algorithm utilizes Alternating Optimization (AO) and Alternating Direction Method of Multipliers (ADMM). It is described in the paper "A Flexible Optimization Framework for Regularized Matrix-Tensor Factorizations with Linear Couplings" by C. Schenker, J. E. Cohen and E. Acar, 2020, available at https://ieeexplore.ieee.org/document/9298877.
+The coupling with PARAFAC2 models is described in https://ieeexplore.ieee.org/abstract/document/10094562.
 This code is open source and can be used by anyone, as long as the paper(s) are cited.
 
 The implementation makes use of the following toolboxes/packages, which need to be downloaded and installed separately:
