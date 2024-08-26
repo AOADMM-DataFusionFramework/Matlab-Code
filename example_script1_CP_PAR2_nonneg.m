@@ -30,8 +30,6 @@ model{2} = 'PAR2';
 coupling.lin_coupled_modes = [1 0 0 1 0 0]; % which modes are coupled, coupled modes get the same number (0: uncoupled)
 coupling.coupling_type = [0]; % for each coupling number in the array lin_coupled_modes, set the coupling type: 0 exact coupling, 1: HC=Delta, 2: CH=Delta, 3: C=HDelta, 4: C=DeltaH
 coupling.coupl_trafo_matrices = cell(6,1); % cell array with coupling transformation matrices for each mode (if any, otherwise keep empty)
-
-
 %% set the fitting function for each dataset: 'Frobenius' for squared
 % Frobenius norm, 'KL' for KL divergence, IS for Itakura-Saito, 'beta' for other beta divergences (give beta in loss_function_param),...more todo
 loss_function{1} = 'Frobenius';
@@ -49,30 +47,14 @@ init_options.normalize = 1; % wether or not to normalize the columns of the init
 
 %% set constraints
 constrained_modes = [1 0 0 1 1 1]; % 1 if the mode is constrained in some way, 0 otherwise, put the same for coupled modes!
-prox_operators = cell(6,1); % cell array of length number of modes containing the function handles of proximal operator for each mode, empty if no constraint
-% provide proximal operators for each constrained mode (operator should be a function, operating on the whole factor matrix, not just a single column)
-% examples using functions from the Proximity Operator Repository:
-% 1) Non-negativity: @(x,rho) project_box(x,0,inf);
-% 2) Box-constraints with lower bound l and upper bound u: @(x,rho) project_box(x,l,u);
-% 3) Simplex constraint column-wise (summing to eta): @(x,rho) project_simplex(x, eta, 1)
-% 4) Simplex constraint row-wise (summing to eta): @(x,rho) project_simplex(x, eta, 2)
-% 5) monotonicity constraint column-wise (non-decreasing): @(x,rho) project_monotone(x, 1)
-% 6) monotonicity constraint column-wise (non-increasing): @(x,rho) -project_monotone(-x, 1)
-% 7) (hard) l1 sparsity column-wise (||x||_1<=eta): @(x,rho) project_L1(x, eta, 1)
-% 8) l2 normalization column-wise (||x||_2<=eta): @(x,rho) project_L2(x, eta, 1)
-% 9) orthonormal columns of matrix x: @(x,rho) project_ortho(x)
-% 9) l1 sparsity regularization (f(x)=eta*||x||_1):  @(x,rho) prox_abs(x,eta/rho*ones(size(x)))
-% 10) l0 sparsity regularization (f(x)=eta*||x||_0): @(x,rho) prox_zero(x,eta/rho*ones(size(x))) (not convex!!!)
-% 11) column-wise l2 regularization (f(x)=eta*||x||_2) : @(x,rho) prox_L2(x, eta/rho, 1)
-% 12) quadratic smoothness regularization on factor matrix (f(X)=eta*||DX||_F^2): @(x,rho) (2*eta/rho*D'*D+eye(size(x)))\x
 
-prox_operators{1} = @(x,rho) project_box(x,0,inf); % non-negativity
-prox_operators{4} = @(x,rho) project_box(x,0,inf); % non-negativity
-prox_operators{5} = @(x,rho) project_box(x,0,inf); % non-negativity
-prox_operators{6} = @(x,rho) project_box(x,0,inf); % non-negativity
-%% set regularization functions for each mode (corresponding to proximal operator for that mode) that should be included in the function value computation (optional)
-%Z.reg_func = cell(6,1); % cell array of length number of modes containing the function handles of regularization functions for each mode, empty if no regularization; function should operate on the whole matrix
-%Z.reg_func{1} =  @(x) 
+constraints = cell(length(constrained_modes),1); % cell array of length number of modes containing the type of constraint or regularization for each mode, empty if no constraint
+%specify constraints-regularizations for each mode, find the options in the file "List of constraints and regularizations.txt"
+constraints{1} = {'non-negativity'};
+constraints{4} = {'non-negativity'};
+constraints{5} = {'non-negativity'};
+constraints{6} = {'non-negativity'};
+
 %% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty), will automatically be added to function value computation
 %Z.ridge = [1e-3,1e-3,1e-3,1e-3,1e-3,1e-3]; % penalties for each mode 
 %% set weights
@@ -94,7 +76,7 @@ Z.modes = modes;
 Z.size  = sz;
 Z.coupling = coupling;
 Z.constrained_modes = constrained_modes;
-Z.prox_operators = prox_operators;
+Z.constraints = constraints;
 Z.weights = weights;
 
 %% create data

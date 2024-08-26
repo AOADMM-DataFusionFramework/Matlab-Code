@@ -21,7 +21,7 @@ modes      = Z.modes;   % how the data sets are grouped
 coupling   = Z.coupling;   % how the modes sets are coupled
 model      = Z.model;
 constrained_modes = Z.constrained_modes; % which factors are constrained
-prox_operators = Z.prox_operators;
+constraints = Z.constraints;
 
 coupled_modes = coupling.lin_coupled_modes;
 coupling_type = coupling.coupling_type;
@@ -94,26 +94,29 @@ for p=1:P
     end 
 end
 
-for p=1:P
-    for n = modes{p}    
-        if constrained_modes(n)
-            if (strcmp(model{p},'PAR2') && 2 == find(modes{p}==n))
-                for k=1:length(sz{n})
-                    A.constraint_fac{n}{k} = feval(distr{n},size(A.fac{n}{k},1),size(A.fac{n}{k},2));
+if any(constrained_modes)
+    [prox_operators,~] = constraints_to_prox(constrained_modes,constraints,sz);
+    for p=1:P
+        for n = modes{p}    
+            if constrained_modes(n)
+                if (strcmp(model{p},'PAR2') && 2 == find(modes{p}==n))
+                    for k=1:length(sz{n})
+                        A.constraint_fac{n}{k} = feval(distr{n},size(A.fac{n}{k},1),size(A.fac{n}{k},2));
+                        if isempty(constraints{n})
+                            error('No constraint provided for mode %s.',num2str(n));
+                        end
+                        A.constraint_fac{n}{k} = feval(prox_operators{n},A.constraint_fac{n}{k},1);
+                        A.constraint_dual_fac{n}{k} = rand(size(A.fac{n}{k}));
+                    end
+               else
+                    A.constraint_fac{n} = feval(distr{n},size(A.fac{n},1),size(A.fac{n},2));
                     if isempty(prox_operators{n})
                         error('No proximal operator provided for mode %s.',num2str(n));
                     end
-                    A.constraint_fac{n}{k} = feval(prox_operators{n},A.constraint_fac{n}{k},1);
-                    A.constraint_dual_fac{n}{k} = rand(size(A.fac{n}{k}));
-                end
-           else
-                A.constraint_fac{n} = feval(distr{n},size(A.fac{n},1),size(A.fac{n},2));
-                if isempty(prox_operators{n})
-                    error('No proximal operator provided for mode %s.',num2str(n));
-                end
-                A.constraint_fac{n} = feval(prox_operators{n},A.constraint_fac{n},1);
-                A.constraint_dual_fac{n} = rand(size(A.fac{n}));
-            end 
+                    A.constraint_fac{n} = feval(prox_operators{n},A.constraint_fac{n},1);
+                    A.constraint_dual_fac{n} = rand(size(A.fac{n}));
+                end 
+            end
         end
     end
 end

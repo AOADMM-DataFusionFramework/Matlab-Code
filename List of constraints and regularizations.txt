@@ -1,0 +1,44 @@
+This list contains the constraints/regularizations that are available in the AO-ADMM Data Fusion Framework, and how they are used in the code. For instance, if the factor matrix of mode m should be non-negative, set Z.constraints{m}={'non-negativity'}. Custom constraints/regularizations can also be used, see the last option. The proximal operators mainly depend on code from the Proximity Operator Repository, which has to be downloaded here: download here: http://proximity-operator.net/proximityoperator.html.
+
+1) Non-negativity: {'non-negativity'}
+
+2) Box-constraints with lower bound l and upper bound u: {'box',l,u}
+
+3) Simplex constraint column-wise (summing to eta): {'simplex column-wise',eta} 
+
+4) Simplex constraint row-wise (summing to eta): {'simplex row-wise',eta}  
+
+5) monotonicity constraint column-wise (non-decreasing): {'non-decreasing'} 
+  
+6) monotonicity constraint column-wise (non-increasing): {'non-increasing'}
+
+7) unimodality constraint column-wise (with (true) or without (false) nonnegativity): {'unimodality',true/false}
+
+8) (hard) l1 sparsity column-wise (||x||_1<=eta): {'l1-ball',eta}  
+
+9) l2-ball (with radius eta) constraint column-wise (||x||_2<=eta): {'l2-ball',eta} 
+
+10) l2-ball (with radius eta) and non-negativity constraint: {'non-negative l2-ball',eta}
+
+11) l2-sphere (with radius eta) (column-wise) and non-negativityconstraint (||x||_2=eta and x>=0): {'non-negative l2-sphere',eta} (not convex!!! Algorithm might not converge!)
+
+12) orthonormal columns of matrix x: {'orthonormal'}
+  
+13) l1 sparsity regularization (f(x)=eta*||x||_1): {'l1 regularization',eta} 
+
+14) l0 sparsity regularization (f(x)=eta*||x||_0): {'l0 regularization',eta}  (not convex!!! Algorithm might not converge!)
+
+15) column-wise l2 regularization (f(x)=eta*||x||_2): {'l2 regularization',eta}
+
+16) ridge regularization (f(x)=eta*||x||_2^2): {'ridge',eta}
+
+17) Grapgh-Laplacian based smoothness regularization column-wise (f(X)=eta*x'*L*x where L is a matrix of the correct size with 2 on the diagonal, -1 on the first off-diagonals and 1 in the upper left and lower right corner): {'GL smoothness', eta}
+
+18) general quadratic regularization column-wise with user-defined L (f(X)=eta*x'*L*x): {'quadratic regularization',eta,L}
+
+19) Total variation (TV) regularization column-wise (f(x) = eta*(sum_{n=1}^{N-1} |x[n+1]-x[n]|)): {'TV regularization',eta}, download function TV_Condat_v2.m here: https://lcondat.github.io/software.html
+
+20) CUSTOM: define your own proximal operator. 
+For hard set constraints g(x), only the proximal operator (i.e. projection operator) p(x) should be given as a function handle as   follows {'custom',@(x,rho) p(x)}. 
+For (soft) regularizations g(x), both the corresponding proximal operator p(x) and the regularization function g(x) have to given as follows {'custom', @(x,rho) 1/rho*p(x), @(x) g(x)}
+Note that both function handles have to have the whole factor matrix x as input!
