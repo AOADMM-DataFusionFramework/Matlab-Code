@@ -79,6 +79,13 @@ function [prox_operators,reg_func] = constraints_to_prox(constrained_modes,const
                 eta = constraints{m}{2};
                 prox_operators{m} =  @(x,rho) prox_TV(x,eta/rho); 
                 reg_func{m} = @(x) eta*sum(sum(x(2:end,:)-x(1:end-1,:)));
+             elseif strcmp(constraints{m}{1},'tPARAFAC2') %tPARAFAC2 constraint, can only be imposed on the second mode of PARAFAC2 (Bk's)
+                if m ~=2  % ADAPT!!!!!
+                    error('The tPARAFAC2 constraint can only be impsed on the second mode of a PARAFAC2 model')
+                end
+                eta = constraints{m}{2};
+                prox_operators{m} = @(x,rho) t_smoothness_prox(x,rho,eta); 
+                reg_func{m} =  @(x) t_smoothness_penalty(x,eta);
              elseif strcmp(constraints{m}{1},'custom')
                  prox_operators{m} = constraints{m}{2};
                  if length(constraints{m})>2

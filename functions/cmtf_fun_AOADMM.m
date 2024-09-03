@@ -420,16 +420,31 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             % constrained
             if Z.constrained_modes(m) && iter >= options.iter_start_PAR2Bkconstraint
                 oldZ = G.constraint_fac{m};
-                for kk=1:length(Z.size{Z.modes{p}(2)})
-                    G.constraint_fac{m}{kk} = feval(Z.prox_operators{m},(G.fac{m}{kk} + G.constraint_dual_fac{m}{kk}),rho(kk));
-                    G.constraint_dual_fac{m}{kk} = G.constraint_dual_fac{m}{kk} + G.fac{m}{kk} - G.constraint_fac{m}{kk};             
-                    % sum up residuals
-                    rel_primal_res_constr = rel_primal_res_constr + norm(G.fac{m}{kk} - G.constraint_fac{m}{kk},'fro')/norm(G.fac{m}{kk},'fro')/length(Z.size{Z.modes{p}(2)});
-                    scaling = norm(G.constraint_dual_fac{m}{kk},'fro');
-                    if scaling>0
-                        rel_dual_res_constr = rel_dual_res_constr + norm(oldZ{kk} - G.constraint_fac{m}{kk},'fro')/scaling/length(Z.size{Z.modes{p}(2)});
-                    else
-                        rel_dual_res_constr = rel_dual_res_constr + norm(oldZ{kk} - G.constraint_fac{m}{kk},'fro')/length(Z.size{Z.modes{p}(2)});
+                if strcmp(Z.constraints{m}{1},'tPARAFAC2')
+                    G.constraint_fac{m} = feval(Z.prox_operators{m},cellfun(@(x, y) x + y, G.fac{m}, G.constraint_dual_fac{m}, 'UniformOutput', false),rho);
+                    for kk=1:length(Z.size{Z.modes{p}(2)})
+                        G.constraint_dual_fac{m}{kk} = G.constraint_dual_fac{m}{kk} + G.fac{m}{kk} - G.constraint_fac{m}{kk};             
+                        % sum up residuals
+                        rel_primal_res_constr = rel_primal_res_constr + norm(G.fac{m}{kk} - G.constraint_fac{m}{kk},'fro')/norm(G.fac{m}{kk},'fro')/length(Z.size{Z.modes{p}(2)});
+                        scaling = norm(G.constraint_dual_fac{m}{kk},'fro');
+                        if scaling>0
+                            rel_dual_res_constr = rel_dual_res_constr + norm(oldZ{kk} - G.constraint_fac{m}{kk},'fro')/scaling/length(Z.size{Z.modes{p}(2)});
+                        else
+                            rel_dual_res_constr = rel_dual_res_constr + norm(oldZ{kk} - G.constraint_fac{m}{kk},'fro')/length(Z.size{Z.modes{p}(2)});
+                        end
+                    end
+                else
+                    for kk=1:length(Z.size{Z.modes{p}(2)})
+                        G.constraint_fac{m}{kk} = feval(Z.prox_operators{m},(G.fac{m}{kk} + G.constraint_dual_fac{m}{kk}),rho(kk));
+                        G.constraint_dual_fac{m}{kk} = G.constraint_dual_fac{m}{kk} + G.fac{m}{kk} - G.constraint_fac{m}{kk};             
+                        % sum up residuals
+                        rel_primal_res_constr = rel_primal_res_constr + norm(G.fac{m}{kk} - G.constraint_fac{m}{kk},'fro')/norm(G.fac{m}{kk},'fro')/length(Z.size{Z.modes{p}(2)});
+                        scaling = norm(G.constraint_dual_fac{m}{kk},'fro');
+                        if scaling>0
+                            rel_dual_res_constr = rel_dual_res_constr + norm(oldZ{kk} - G.constraint_fac{m}{kk},'fro')/scaling/length(Z.size{Z.modes{p}(2)});
+                        else
+                            rel_dual_res_constr = rel_dual_res_constr + norm(oldZ{kk} - G.constraint_fac{m}{kk},'fro')/length(Z.size{Z.modes{p}(2)});
+                        end
                     end
                 end
             end
@@ -950,8 +965,12 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             for n = 1:nb_modes 
                 if ~isempty(Z.reg_func{n})
                     if iscell(G.constraint_fac{n}) %PAR2 2nd mode
-                        for kk=1:length(G.constraint_fac{n})
-                            f_tensors = f_tensors + feval(Z.reg_func{n},G.fac{n}{kk});
+                        if strcmp(Z.constraints{n}{1},'tPARAFAC2')
+                            f_tensors = f_tensors + feval(Z.reg_func{n},G.fac{n});
+                        else
+                            for kk=1:length(G.constraint_fac{n})
+                                f_tensors = f_tensors + feval(Z.reg_func{n},G.fac{n}{kk});
+                            end
                         end
                     else
                         f_tensors = f_tensors + feval(Z.reg_func{n},G.fac{n});

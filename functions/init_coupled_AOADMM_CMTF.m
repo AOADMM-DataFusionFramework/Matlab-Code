@@ -105,7 +105,9 @@ if any(constrained_modes)
                         if isempty(constraints{n})
                             error('No constraint provided for mode %s.',num2str(n));
                         end
-                        A.constraint_fac{n}{k} = feval(prox_operators{n},A.constraint_fac{n}{k},1);
+                        if ~strcmp(constraints{n}{1},'tPARAFAC2')
+                            A.constraint_fac{n}{k} = feval(prox_operators{n},A.constraint_fac{n}{k},1);
+                        end
                         A.constraint_dual_fac{n}{k} = rand(size(A.fac{n}{k}));
                     end
                else

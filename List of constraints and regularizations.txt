@@ -38,7 +38,9 @@ This list contains the constraints/regularizations that are available in the AO-
 
 19) Total variation (TV) regularization column-wise (f(x) = eta*(sum_{n=1}^{N-1} |x[n+1]-x[n]|)): {'TV regularization',eta}, download function TV_Condat_v2.m here: https://lcondat.github.io/software.html
 
-20) CUSTOM: define your own proximal operator. 
+20) tPARAFAC2 constraint: temporal smoothness of Bk's across k in a PARAFAC2 model (f({B_k}_{k=1}^K = eta*sum_{k=1}^K ||B_k-B_{k-1}||_F^2)): {'tPARAFAC2',eta}
+
+21) CUSTOM: define your own proximal operator. 
 For hard set constraints g(x), only the proximal operator (i.e. projection operator) p(x) should be given as a function handle as   follows {'custom',@(x,rho) p(x)}. 
 For (soft) regularizations g(x), both the corresponding proximal operator p(x) and the regularization function g(x) have to given as follows {'custom', @(x,rho) 1/rho*p(x), @(x) g(x)}
 Note that both function handles have to have the whole factor matrix x as input!
