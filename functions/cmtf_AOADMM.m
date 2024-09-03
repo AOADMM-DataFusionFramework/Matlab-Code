@@ -21,10 +21,24 @@ init = params.Results.init_options;
 
 %%
 P = numel(Z.object);
+nb_modes  = length(Z.size);
+which_p = zeros(1,nb_modes);
+for i=1:nb_modes
+    which_p(i) = find(cellfun(@(x) any(ismember(x,i)),Z.modes));
+end
 %% Constraints
 [prox_operators,reg_func] = constraints_to_prox(Z.constrained_modes,Z.constraints,Z.size);
 Z.prox_operators = prox_operators;
 Z.reg_func = reg_func;
+for m=1:length(Z.constraints)
+    if Z.constrained_modes(m)
+        if strcmp(Z.constraints{m}{1},'tPARAFAC2')
+            if ~strcmp(Z.model{which_p(m)},'PAR2') || 2 ~= find(Z.modes{which_p(m)}==m)
+                error('The tPARAFAC2 constraint can only be impsed on the second mode of a PARAFAC2 model')
+            end
+        end
+    end
+end
 
 %% Initialization
 if isstruct(params.Results.init)

@@ -110,7 +110,10 @@ if any(constrained_modes)
                         end
                         A.constraint_dual_fac{n}{k} = rand(size(A.fac{n}{k}));
                     end
-               else
+                else
+                    if strcmp(constraints{n}{1},'tPARAFAC2')
+                        error('The tPARAFAC2 constraint can only be impsed on the second mode of a PARAFAC2 model')
+                    end
                     A.constraint_fac{n} = feval(distr{n},size(A.fac{n},1),size(A.fac{n},2));
                     if isempty(prox_operators{n})
                         error('No proximal operator provided for mode %s.',num2str(n));
