@@ -27,8 +27,6 @@ for p = 1:length(lambdas)
     end
     if (strcmp(model{p},'PAR2') && lin_coupled_modes(modes{p}(2)))
         error('Coupling in 2. mode (the varying mode) of Parafac2 decomposition not supported.')
-    elseif(strcmp(model{p},'PAR2') && lin_coupled_modes(modes{p}(3)))
-        error('Coupling in 3. mode (C mode) of Parafac2 decomposition not yet supported.')
     end
 end
 
