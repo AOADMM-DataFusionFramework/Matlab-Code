@@ -115,22 +115,10 @@ Zhat = cell(P,1);
 for p=1:P
     if strcmp(Z.model{p},'CP')
         Zhat{p} = ktensor(Fac.fac(Z.modes{p}));
-        Zhat{p} = normalize(Zhat{p});
     elseif strcmp(Z.model{p},'PAR2')
         Zhat{p}.A = Fac.fac{Z.modes{p}(1)};
         Zhat{p}.Bk = Fac.fac{Z.modes{p}(2)};
         Zhat{p}.C = Fac.fac{Z.modes{p}(3)};
-        % normalize columns of A and B and put norms into C
-        for r=1:size(Zhat{p}.A,2)
-            normAr = norm(Zhat{p}.A(:,r),2);
-            Zhat{p}.A(:,r) = Zhat{p}.A(:,r)/normAr;
-            Zhat{p}.C(:,r) = Zhat{p}.C(:,r).*normAr;
-            for k=1:length(Zhat{p}.Bk)
-                normBrk = norm(Zhat{p}.Bk{k}(:,r),2);
-                Zhat{p}.Bk{k}(:,r) = Zhat{p}.Bk{k}(:,r)/normBrk;
-                Zhat{p}.C(k,r) = Zhat{p}.C(k,r).*normBrk;   
-            end
-        end
     end
 end
 
