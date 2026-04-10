@@ -51,6 +51,62 @@ elseif strcmpi(params.Results.init,'random')
 else
     error('Initialization type not supported')
 end
+%% Missing data preprocessing
+% If Z.miss is provided, validate masks and zero-initialize missing entries
+% so that Znorm_const (computed below) reflects observed entries only.
+if isfield(Z, 'miss')
+    for p = 1:P
+        if isempty(Z.miss{p}), continue; end
+        if ~strcmp(Z.loss_function{p}, 'Frobenius')
+            error('cmtf:missingData:nonFrobenius', ...
+                'Missing data (Z.miss) is only supported for Frobenius loss functions.');
+        end
+        if strcmp(Z.model{p}, 'CP')
+            if isa(Z.object{p}, 'sptensor')
+                error('cmtf:missingData:sptensor', ...
+                    'Missing data (Z.miss) not supported for sptensor objects. Convert to tensor first.');
+            end
+            if isa(Z.object{p}, 'tensor')
+                sz_obj = Z.object{p}.size;
+            else
+                sz_obj = size(Z.object{p});
+            end
+            if ~islogical(Z.miss{p})
+                error('cmtf:missingData:maskNotLogical', ...
+                    'Z.miss{%d} must be a logical array.', p);
+            end
+            if ~isequal(sz_obj, size(Z.miss{p}))
+                error('cmtf:missingData:maskSizeMismatch', ...
+                    'Z.miss{%d} size does not match Z.object{%d}.', p, p);
+            end
+            if isa(Z.object{p}, 'tensor')
+                tmp = double(Z.object{p});
+                tmp(~Z.miss{p}) = 0;
+                Z.object{p} = tensor(tmp);
+            else
+                Z.object{p}(~Z.miss{p}) = 0;
+            end
+        elseif strcmp(Z.model{p}, 'PAR2')
+            K = length(Z.object{p});
+            if ~iscell(Z.miss{p}) || length(Z.miss{p}) ~= K
+                error('cmtf:missingData:PAR2maskNotCell', ...
+                    'Z.miss{%d} must be a cell array of length %d for PAR2.', p, K);
+            end
+            for k = 1:K
+                if ~islogical(Z.miss{p}{k})
+                    error('cmtf:missingData:PAR2maskSliceNotLogical', ...
+                        'Z.miss{%d}{%d} must be a logical array.', p, k);
+                end
+                if ~isequal(size(Z.object{p}{k}), size(Z.miss{p}{k}))
+                    error('cmtf:missingData:PAR2maskSliceSizeMismatch', ...
+                        'Z.miss{%d}{%d} size does not match Z.object{%d}{%d}.', p, k, p, k);
+                end
+                Z.object{p}{k}(~Z.miss{p}{k}) = 0;
+            end
+        end
+    end
+end
+
 %% Loss function
 Znorm_const = cell(P,1);
 fh = cell(P,1); % function handles for lossfunction 
