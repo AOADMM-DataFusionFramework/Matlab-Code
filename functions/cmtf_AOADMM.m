@@ -72,8 +72,12 @@ if isfield(Z, 'miss')
                 sz_obj = size(Z.object{p});
             end
             if ~islogical(Z.miss{p})
-                error('cmtf:missingData:maskNotLogical', ...
-                    'Z.miss{%d} must be a logical array.', p);
+                if isnumeric(Z.miss{p}) && all(ismember(Z.miss{p}(:), [0 1]))
+                    Z.miss{p} = logical(Z.miss{p});
+                else
+                    error('cmtf:missingData:maskNotLogical', ...
+                        'Z.miss{%d} must be a logical or binary (0/1) array.', p);
+                end
             end
             if ~isequal(sz_obj, size(Z.miss{p}))
                 error('cmtf:missingData:maskSizeMismatch', ...
@@ -94,8 +98,12 @@ if isfield(Z, 'miss')
             end
             for k = 1:K
                 if ~islogical(Z.miss{p}{k})
-                    error('cmtf:missingData:PAR2maskSliceNotLogical', ...
-                        'Z.miss{%d}{%d} must be a logical array.', p, k);
+                    if isnumeric(Z.miss{p}{k}) && all(ismember(Z.miss{p}{k}(:), [0 1]))
+                        Z.miss{p}{k} = logical(Z.miss{p}{k});
+                    else
+                        error('cmtf:missingData:PAR2maskSliceNotLogical', ...
+                            'Z.miss{%d}{%d} must be a logical or binary (0/1) array.', p, k);
+                    end
                 end
                 if ~isequal(size(Z.object{p}{k}), size(Z.miss{p}{k}))
                     error('cmtf:missingData:PAR2maskSliceSizeMismatch', ...
