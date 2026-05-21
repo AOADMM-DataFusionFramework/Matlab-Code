@@ -9,6 +9,8 @@
 %%
 close all
 clear all
+%%
+rng("default")
 %% add AO-ADMM solver functions to path
 addpath(genpath('.\functions'))
 %% add other apckages to your path!

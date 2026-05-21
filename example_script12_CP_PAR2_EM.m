@@ -21,6 +21,8 @@
 %%
 close all
 clear all
+%%
+rng("default")
 %% add AO-ADMM solver functions to path
 addpath(genpath('.\functions'))
 %% add other packages to your path!
@@ -28,8 +30,6 @@ addpath(genpath('..\tensor_toolbox-v3.1')) %Tensor toolbox is needed!  MATLAB Te
 addpath(genpath('..\L-BFGS-B-C-master')) % LBFGS-B implementation only needed when other loss than Frobenius is used, download here: https://github.com/stephenbeckr/L-BFGS-B-C
 addpath(genpath('..\proximal_operators\code\matlab')) % Proximal operator repository needed! download here: http://proximity-operator.net/proximityoperator.html
 addpath(genpath('.\functions_for_example_scripts'))
-rng(123,'twister');
-
 %% specify synthetic data
 sz     = {20, 30, 40, 20, 25*ones(1,30), 30}; %size of each mode
 P      = 2; %number of tensors
