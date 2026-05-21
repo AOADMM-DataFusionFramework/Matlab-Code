@@ -52,9 +52,9 @@ else
     error('Initialization type not supported')
 end
 %% Missing data preprocessing
-% If Z.miss is provided, validate masks and zero-initialize missing entries
-% so that Znorm_const (computed below) reflects observed entries only.
-if isfield(Z, 'miss')
+% If Z.miss is provided, validate masks 
+has_missing = isfield(Z, 'miss') && any(~cellfun(@isempty, Z.miss));
+if has_missing
     for p = 1:P
         if isempty(Z.miss{p}), continue; end
         if ~strcmp(Z.loss_function{p}, 'Frobenius')
@@ -71,24 +71,18 @@ if isfield(Z, 'miss')
             else
                 sz_obj = size(Z.object{p});
             end
-            if ~islogical(Z.miss{p})
-                if isnumeric(Z.miss{p}) && all(ismember(Z.miss{p}(:), [0 1]))
-                    Z.miss{p} = logical(Z.miss{p});
-                else
-                    error('cmtf:missingData:maskNotLogical', ...
-                        'Z.miss{%d} must be a logical or binary (0/1) array.', p);
-                end
-            end
             if ~isequal(sz_obj, size(Z.miss{p}))
                 error('cmtf:missingData:maskSizeMismatch', ...
                     'Z.miss{%d} size does not match Z.object{%d}.', p, p);
             end
-            if isa(Z.object{p}, 'tensor')
-                tmp = double(Z.object{p});
-                tmp(~Z.miss{p}) = 0;
-                Z.object{p} = tensor(tmp);
-            else
-                Z.object{p}(~Z.miss{p}) = 0;
+            if ~isa(Z.miss{p},'sptensor')
+                try 
+                    Z.miss{p} = sptensor(tensor(Z.miss{p}));
+                catch
+                    error('cmtf:missingData:maskTypeError',...
+                        'Z.miss{%d} is not a sptensor and cannot be converted to one.',p);
+                end
+
             end
         elseif strcmp(Z.model{p}, 'PAR2')
             K = length(Z.object{p});
@@ -109,7 +103,6 @@ if isfield(Z, 'miss')
                     error('cmtf:missingData:PAR2maskSliceSizeMismatch', ...
                         'Z.miss{%d}{%d} size does not match Z.object{%d}{%d}.', p, k, p, k);
                 end
-                Z.object{p}{k}(~Z.miss{p}{k}) = 0;
             end
         end
     end
@@ -125,14 +118,28 @@ for p = 1:P
     if strcmp(Z.loss_function{p},'Frobenius')
         if strcmp(Z.model{p},'CP')
             if isa(Z.object{p},'tensor') || isa(Z.object{p},'sptensor')
-                Znorm_const{p} = norm(Z.object{p})^2;
+                if has_missing && ~isempty(Z.miss{p})
+                    Znorm_const{p} = norm(Z.miss{p}.*Z.object{p})^2;
+                else
+                    Znorm_const{p} = norm(Z.object{p})^2;
+                end
             else
-                Znorm_const{p} = norm(Z.object{p},'fro')^2;
+                if has_missing
+                    Znorm_const{p} = norm(Z.miss{p}.*Z.object{p},'fro')^2;
+                else
+                    Znorm_const{p} = norm(Z.object{p},'fro')^2;
+                end
             end
         elseif strcmp(Z.model{p},'PAR2')
             Znorm_const{p} = 0;
-            for k=1:length(Z.object{p})
-                Znorm_const{p} = Znorm_const{p} + norm(Z.object{p}{k},'fro')^2;
+            if has_missing  && ~isempty(Z.miss{p})
+                for k=1:length(Z.object{p})
+                    Znorm_const{p} = Znorm_const{p} + norm(Z.miss{p}{k}.*Z.object{p}{k},'fro')^2;
+                end
+            else
+                for k=1:length(Z.object{p})
+                    Znorm_const{p} = Znorm_const{p} + norm(Z.object{p}{k},'fro')^2;
+                end
             end
         end
         

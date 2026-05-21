@@ -115,13 +115,13 @@ end
 %% Build missing-data masks (~20% missing at random in each block)
 miss_frac = 0.20;
 
-% Tensor 1 (CP): Z.miss{1} is a logical array matching the tensor size;
+% Tensor 1 (CP): Z.miss{1} is an sptensor (sparse tensor) matching the tensor size;
 %                true = observed, false = missing.
 sz1          = [sz{1}, sz{2}, sz{3}];   % [20 30 40]
 n_entries    = prod(sz1);
 miss_mask_CP = true(sz1);
 miss_mask_CP(randperm(n_entries, round(miss_frac * n_entries))) = false;
-Z.miss{1}    = miss_mask_CP;
+Z.miss{1}    = sptensor(miss_mask_CP);
 
 % Tensor 2 (PAR2): Z.miss{2} must be a cell array of K logical matrices,
 %                  one per slice, where true = observed and false = missing.
@@ -137,6 +137,14 @@ for k = 1:K2
     miss_cell_PAR2{k} = mask_k;
 end
 Z.miss{2} = miss_cell_PAR2;
+
+%% initialize missing entries with entires of your choice
+
+Z.object{1}(find(~Z.miss{1})) = 0; % initialize missing entries with 0
+
+for k=1:K2
+    Z.object{2}{k}(~Z.miss{2}{k}) = 0; % initialize missing entries with 0
+end
 
 %% Create random initialization
 init_fac = init_coupled_AOADMM_CMTF(Z,'init_options', init_options);
@@ -196,9 +204,11 @@ hold on
 semilogy([0:out.OuterIterations],out.func_constr_conv,':')
 hold on
 semilogy([0:out.OuterIterations],out.func_PAR2_coupl,'+')
+hold on
+semilogy([0:out.OuterIterations],out.func_rel_missing,'*')
 xlabel('iterations')
 ylabel('function value')
-legend('function value','difference coupling','difference constraints','difference PAR2 coupling')
+legend('function value','difference coupling','difference constraints','difference PAR2 coupling','difference missing')
 
 
 subplot(1,3,2)
@@ -209,9 +219,11 @@ hold on
 semilogy(out.time_at_it,out.func_constr_conv,':')
 hold on
 semilogy(out.time_at_it,out.func_PAR2_coupl,'+')
+hold on
+semilogy(out.time_at_it,out.func_rel_missing,'*')
 xlabel('time in seconds')
 ylabel('function value')
-legend('function value','difference coupling','difference constraints','difference PAR2 coupling')
+legend('function value','difference coupling','difference constraints','difference PAR2 coupling','difference missing')
 
 markers = {'+','o','*','x','^','v','s','d','>','<','p','h'};
 subplot(1,3,3)
@@ -230,7 +242,7 @@ figure()
 % --- Block 1: CP ---
 cp_true_arr = double(X{1}) / normZ{1};   % ground-truth, normalized
 cp_fit_arr  = double(full(Zhat{1}));      % model fit, normalized
-miss_idx_CP = ~Z.miss{1};                 % true = missing
+miss_idx_CP = ~double(Z.miss{1});                 % true = missing
 
 subplot(1,2,1)
 scatter(cp_true_arr(miss_idx_CP), cp_fit_arr(miss_idx_CP), 5, 'filled', 'MarkerFaceAlpha', 0.3)
