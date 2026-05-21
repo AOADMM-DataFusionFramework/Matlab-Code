@@ -26,23 +26,36 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     last_mttkrp = cell(P,1); %for efficient function value computation
     last_had = cell(P,1); %for efficient function value computation
     out.innerIters = zeros(nb_modes,1);
+    has_missing = isfield(Z, 'miss') && any(~cellfun(@isempty, Z.miss));
+    f_rel_missing = NaN;
 
-    [f_tensors,f_couplings,f_constraints,f_PAR2_couplings] = CMTF_AOADMM_func_eval(Znorm_const,[],[],[]);
+    [f_tensors,f_couplings,f_constraints,f_PAR2_couplings] = CMTF_AOADMM_func_eval(Znorm_const,[],[],[],has_missing);
     f_total = f_tensors+f_couplings+f_constraints + f_PAR2_couplings;
     func_val(1) = f_tensors;
     func_coupl(1) = f_couplings;
     func_constr(1) = f_constraints;
     func_PAR2_coupl(1) = f_PAR2_couplings;
+    if has_missing
+        func_rel_missing(1) = f_rel_missing;
+    end
     tstart = tic;
     time_at_it(1) = 0;
     %display first iteration
     if strcmp(options.Display,'iter') || strcmp(options.Display,'final')
-        fprintf(1,' Iter  f total      f tensors      f couplings    f constraints    f PAR2 couplings\n');
+        if has_missing
+            fprintf(1,' Iter  f total      f tensors      f couplings    f constraints    f PAR2 couplings  f_rel_miss\n');
+        else
+            fprintf(1,' Iter  f total      f tensors      f couplings    f constraints    f PAR2 couplings\n');
+        end
         fprintf(1,'------ ------------ -------------  -------------- ---------------- ----------------\n');
     end
 
     if strcmp(options.Display,'iter')
-        fprintf(1,'%6d %12f %12f %12f %17f %12f\n', 0, f_total, f_tensors, f_couplings,f_constraints, f_PAR2_couplings);
+        if has_missing
+            fprintf(1,'%6d %12f %12f %12f %17f %12f %12f\n', 0, f_total, f_tensors, f_couplings, f_constraints, f_PAR2_couplings, f_rel_missing);
+        else
+            fprintf(1,'%6d %12f %12f %12f %17f %12f\n', 0, f_total, f_tensors, f_couplings,f_constraints, f_PAR2_couplings);
+        end
     end
     iter = 1;
     
@@ -325,24 +338,67 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                 end
             %end
         end
-        
-        
+
+        % EM imputation: update missing entries with the current low-rank model.
+        % After this step, Z.object{p}(missing) == model(missing).
+        if has_missing
+            num_sq = 0;
+            den_sq = 0;
+            for p = 1:P
+                if isempty(Z.miss{p}), continue; end
+                if strcmp(Z.model{p}, 'CP')
+                    M_full = full(ktensor(G.fac(Z.modes{p})));
+                    miss_mask = find(~Z.miss{p});
+                    old_vals = Z.object{p}(miss_mask);
+                    new_vals = M_full(miss_mask);
+                    Z.object{p}(miss_mask) = new_vals;
+                    num_sq = num_sq + sum((new_vals - old_vals).^2);
+                    den_sq = den_sq + sum(old_vals.^2);
+                elseif strcmp(Z.model{p}, 'PAR2')
+                    m1 = Z.modes{p}(1); m2 = Z.modes{p}(2); m3 = Z.modes{p}(3);
+                    for k = 1:length(Z.object{p})
+                        M_k = G.fac{m1} * diag(G.fac{m3}(k,:)) * G.fac{m2}{k}';
+                        miss_k = ~Z.miss{p}{k};
+                        old_k = Z.object{p}{k}(miss_k);
+                        new_k = M_k(miss_k);
+                        num_sq = num_sq + sum((new_k - old_k).^2);
+                        den_sq = den_sq + sum(old_k.^2);
+                        Z.object{p}{k}(miss_k) = new_k;
+                    end
+                end
+            end
+            if den_sq > 0
+                f_rel_missing = sqrt(num_sq / den_sq);
+            else
+                f_rel_missing = sqrt(num_sq);
+            end
+        end
+
        f_tensors_old = f_tensors;
        f_couplings_old = f_couplings;
        f_constraints_old = f_constraints;
        f_PAR2_couplings_old = f_PAR2_couplings;
-       [f_tensors,f_couplings,f_constraints,f_PAR2_couplings] = CMTF_AOADMM_func_eval(Znorm_const,last_mttkrp,last_had,last_m);
+       [f_tensors,f_couplings,f_constraints,f_PAR2_couplings] = CMTF_AOADMM_func_eval(Znorm_const,last_mttkrp,last_had,last_m,has_missing);
+       
        f_total = f_tensors+f_couplings+f_constraints + f_PAR2_couplings;
        func_val(iter+1) = f_tensors;
        func_coupl(iter+1) = f_couplings;
        func_constr(iter+1) = f_constraints;
        func_PAR2_coupl(iter+1) = f_PAR2_couplings;
+       func_rel_missing(iter+1) = f_rel_missing;
        time_at_it(iter+1) = toc(tstart);
        stop = evaluate_stopping_conditions(f_tensors,f_couplings,f_constraints,f_PAR2_couplings,f_tensors_old,f_couplings_old,f_constraints_old,f_PAR2_couplings_old,options);
+       if has_missing
+           stop = stop && (f_rel_missing < options.OuterRelTol);
+       end
 
         %display
         if strcmp(options.Display,'iter') && mod(iter,options.DisplayIters)==0
-            fprintf(1,'%6d %12f %12f %12f %17f %12f\n', iter, f_total, f_tensors, f_couplings,f_constraints,f_PAR2_couplings);
+            if has_missing
+                fprintf(1,'%6d %12f %12f %12f %17f %12f %12f\n', iter, f_total, f_tensors, f_couplings,f_constraints,f_PAR2_couplings, f_rel_missing);
+            else
+                fprintf(1,'%6d %12f %12f %12f %17f %12f\n', iter, f_total, f_tensors, f_couplings,f_constraints,f_PAR2_couplings);
+            end
         end
         iter = iter+1;
         
@@ -359,6 +415,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     out.f_couplings = f_couplings;
     out.f_constraints = f_constraints;
     out.f_PAR2_couplings = f_PAR2_couplings;
+    out.f_rel_missing = f_rel_missing;
     out.exit_flag = exit_flag;
     out.OuterIterations = iter-1;
     out.func_val_conv = func_val;
@@ -366,11 +423,18 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     out.func_constr_conv = func_constr;
     out.func_PAR2_coupl = func_PAR2_coupl;
     out.time_at_it = time_at_it;
+    if has_missing
+        out.func_rel_missing = func_rel_missing;
+    end
 
 
     %display final
     if strcmp(options.Display,'iter') || strcmp(options.Display,'final')
-        fprintf(1,'%6d %12f %12f %12f %12f %12f\n', iter-1, f_total, f_tensors, f_couplings,f_constraints,f_PAR2_couplings);
+        if has_missing
+            fprintf(1,'%6d %12f %12f %12f %12f %12f %12f\n', iter-1, f_total, f_tensors, f_couplings,f_constraints,f_PAR2_couplings, f_rel_missing);
+        else
+            fprintf(1,'%6d %12f %12f %12f %12f %12f\n', iter-1, f_total, f_tensors, f_couplings,f_constraints,f_PAR2_couplings);
+        end
     end
     
     warning(s); 
@@ -901,7 +965,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function [f_tensors,f_couplings,f_constraints,f_PAR2_couplings] = CMTF_AOADMM_func_eval( Znorm_const,last_mttkrp,last_had,last_m)
+    function [f_tensors,f_couplings,f_constraints,f_PAR2_couplings] = CMTF_AOADMM_func_eval( Znorm_const,last_mttkrp,last_had,last_m,has_missing)
     % evaluates the 'residuals' of the objective function
     % ftensors = sum_i w_i ||T_i-[|C_i,1,C_i,2,C_i,3|]||_F^2 + g_i,d(C_i,d) (for all regularizations g_i,d)
     % f_couplings = sum_i ||C_i-Delta_i||_F^2
@@ -912,23 +976,16 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
         for pp = 1:P
             if strcmp(Z.model{pp},'CP')
                 if strcmp(Z.loss_function{pp},'Frobenius')
-                    if length(size(Z.object{pp}))>=3
-                        % Tensor 
+                    if has_missing && ~isempty(Z.miss{pp})
+                        M = Z.miss{pp}.*full(ktensor(G.fac(Z.modes{pp})));
+                        fp(pp) = Z.weights(pp)* (Znorm_const{pp}-2*innerprod(Z.object{pp},M)+norm(M)^2);
+                    else
                         if isempty(last_mttkrp)
-                           fp(pp) = cp_func(Z.object{pp}, G.fac(Z.modes{pp}),  Znorm_const{pp},Z.weights(pp)); 
-                        else
-                            f_1 =  Znorm_const{pp};
-                            V = last_mttkrp{pp}.*G.fac{last_m(pp)};
-                            f_2 = sum(V(:));
-                            W = last_had{pp}.*G_transp_G{last_m(pp)};
-                            f_3 = sum(W(:));
-                            f = f_1 - 2* f_2 + f_3;
-                            fp(pp) = Z.weights(pp) *f;
-                        end
-                    elseif length(size(Z.object{pp}))==2
-                        % Matrix   
-                       if isempty(last_mttkrp)
-                            fp(pp) = pca_func(Z.object{pp}, G.fac(Z.modes{pp}),  Znorm_const{pp},Z.weights(pp));   
+                             if length(size(Z.object{pp}))>=3     % Tensor
+                                 fp(pp) = cp_func(Z.object{pp}, G.fac(Z.modes{pp}),  Znorm_const{pp},Z.weights(pp));
+                             elseif length(size(Z.object{pp}))==2 % Matrix
+                                 fp(pp) = pca_func(Z.object{pp}, G.fac(Z.modes{pp}),  Znorm_const{pp},Z.weights(pp));
+                             end
                         else
                             f_1 =  Znorm_const{pp};
                             V = last_mttkrp{pp}.*G.fac{last_m(pp)};
@@ -944,16 +1001,22 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                 end
             elseif strcmp(Z.model{pp},'PAR2')
                 fp(pp) = 0;
-                if ~isempty(last_mttkrp) && last_m(pp)==1
-                    f_1 =  Znorm_const{pp};
-                    V = last_mttkrp{pp}.*G.fac{Z.modes{pp}(1)};
-                    f_2 = sum(V(:));
-                    W = last_had{pp}.*G_transp_G{Z.modes{pp}(1)};
-                    f_3 = sum(W(:));
-                    fp(pp) = f_1 - 2* f_2 + f_3;
-                else
+                if has_missing && ~isempty(Z.miss{pp})
                     for kk=1:length(Z.size{Z.modes{pp}(2)})
-                        fp(pp) = fp(pp) + norm(Z.object{pp}{kk}-G.fac{Z.modes{pp}(1)}*diag(G.fac{Z.modes{pp}(3)}(kk,:))*G.fac{Z.modes{pp}(2)}{kk}','fro')^2;
+                        fp(pp) = fp(pp) + norm(Z.miss{pp}{kk}.*(Z.object{pp}{kk}-G.fac{Z.modes{pp}(1)}*diag(G.fac{Z.modes{pp}(3)}(kk,:))*G.fac{Z.modes{pp}(2)}{kk}'),'fro')^2;
+                    end 
+                else
+                    if ~isempty(last_mttkrp) && last_m(pp)==1
+                        f_1 =  Znorm_const{pp};
+                        V = last_mttkrp{pp}.*G.fac{Z.modes{pp}(1)};
+                        f_2 = sum(V(:));
+                        W = last_had{pp}.*G_transp_G{Z.modes{pp}(1)};
+                        f_3 = sum(W(:));
+                        fp(pp) = f_1 - 2* f_2 + f_3;
+                    else
+                        for kk=1:length(Z.size{Z.modes{pp}(2)})
+                            fp(pp) = fp(pp) + norm(Z.object{pp}{kk}-G.fac{Z.modes{pp}(1)}*diag(G.fac{Z.modes{pp}(3)}(kk,:))*G.fac{Z.modes{pp}(2)}{kk}','fro')^2;
+                        end
                     end
                 end
                 fp(pp) = Z.weights(pp) *fp(pp);
