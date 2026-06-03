@@ -12,7 +12,7 @@
 close all
 clear all
 %%
-rng(3)
+rng(4)
 %% add AO-ADMM solver functions to path
 addpath(genpath('.\functions'))
 %% add other apckages to your path!
@@ -24,7 +24,7 @@ sz     = {50,30,40,50,70}; %size of each mode
 P      = 2; %number of tensors
 lambdas_data= {[1 1 1 1], [1 1 1]}; % norms of components in each data set (length of each array specifies the number of components in each dataset)
 modes  = {[1 2 3], [4 5]}; % which modes belong to which dataset: every mode should have its unique number d, sz(d) corresponds to size of that mode
-noise = 0.2; %level of noise, for gaussian noise only!
+noise = 0.05; %level of noise, for gaussian noise only!
 distr_data = {@(x,y) rand(x,y), @(x,y) randn(x,y),@(x,y) randn(x,y),@(x,y) rand(x,y),@(x,y) rand(x,y)}; % function handle of distribution of data within each factor matrix /or Delta if linearly coupled, x,y are the size inputs %coupled modes need to have same distribution! If not, just the first one will be considered
 normalize_columns = 0; %wether or not to normalize columns of the created factor matrices, this might destroy the distribution!
 %% specify tensor model
@@ -108,15 +108,17 @@ for p=1:P
 end
 
 %% Create random initialization
+
+rng(13);
 init_fac = init_coupled_AOADMM_CMTF(Z,'init_options', init_options);
 
 %% set options 
 
 options.Display ='iter'; %  set to 'iter' or 'final' or 'no'
 options.DisplayIters = 10;
-options.MaxOuterIters = 4000;
+options.MaxOuterIters = 8000;
 options.MaxInnerIters = 5;
-options.AbsFuncTol   = 1e-4;
+options.AbsFuncTol   = 1e-6;
 options.OuterRelTol = 1e-8;
 options.innerRelPrTol_coupl = 1e-3;
 options.innerRelPrTol_constr = 1e-3;
