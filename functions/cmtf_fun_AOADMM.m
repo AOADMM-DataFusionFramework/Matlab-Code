@@ -85,7 +85,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     
     stop = false;
     while(iter<=options.MaxOuterIters && ~stop)    
-        try
+        %try
         for coupl_id=couplings %loop over all couplings (and non-coupled modes, if couplings=0)
             coupled_modes = find(Z.coupling.lin_coupled_modes==coupl_id); % all modes with this coupling_id
             for p=unique(which_p(coupled_modes)) % loop over all coupled tensors for this coupling_id (can be done in parallel!)
@@ -322,6 +322,18 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                                 end
                             end
                             [inner_iters,lbfgsb_iterations] = ADMM_coupled_case4(A,L,coupled_modes,coupl_id,rho,options);
+                        case 5
+                            for m=coupled_modes
+                                p = which_p(m);
+                                if strcmp(Z.loss_function{p},'Frobenius')
+                                    B2{m} = rho{m}/2* Z.coupling.coupl_trafo_matrices{m}'*Z.coupling.coupl_trafo_matrices{m}; % precompute????
+                                    if Z.constrained_modes(m) %mode is constrained 
+                                        B2{m} = B2{m} + rho{m}/2*eye(size(B2{m}));
+                                    end
+                                end
+                            end
+                            [inner_iters,lbfgsb_iterations] = ADMM_coupled_case5(A,B,B2,coupled_modes,coupl_id,rho,options);
+
                     end
                     out.innerIters(coupled_modes,iter)= inner_iters;
                     for m=coupled_modes
@@ -402,11 +414,11 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
         end
         iter = iter+1;
         
-        catch
-            illconditioned = 1;
-            fprintf('Stopped due to illconditioned linear system')
-            break
-        end
+        %catch
+        %    illconditioned = 1;
+        %    fprintf('Stopped due to illconditioned linear system')
+        %    break
+        %end
     end
     % which condition caused stop?
     exit_flag = make_exit_flag(iter,f_tensors,f_couplings,f_constraints,f_PAR2_couplings,options,illconditioned);
@@ -847,7 +859,63 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             end
         end
         inner_iter = inner_iter-1;
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [inner_iter,lbfgsb_iterations] = ADMM_coupled_case5(A,B,B2,coupled_modes,coupl_id,rho,options)
+        inner_iter = 1;
+        rel_primal_res_coupling = inf;
+        rel_primal_res_constr = inf;
+        rel_dual_res_coupling = inf;
+        rel_dual_res_constr = inf;
+        oldZ = cell(nb_modes,1);
+        while (inner_iter<=options.MaxInnerIters &&(rel_primal_res_coupling>options.innerRelPrTol_coupl||rel_primal_res_constr>options.innerRelPrTol_constr||rel_dual_res_coupling>options.innerRelDualTol_coupl||rel_dual_res_constr>options.innerRelDualTol_constr))
+            %exact coupling
+            for mm=coupled_modes %update all factor matrices (can be done in parallel!)
+                pp = which_p(mm);
+                if strcmp(Z.loss_function{pp},'Frobenius')
+                    A_inner = A{mm} + rho{mm}/2*Z.coupling.coupl_trafo_matrices{mm}'*( G.coupling_fac{Z.coupling.lin_coupled_modes(mm)}*Z.coupling.coupl_trafo_matrices2{mm} - G.coupling_dual_fac{mm});
+                    if Z.constrained_modes(mm) %in case the mode is also constrained
+                        A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                    end
+                    G.fac{mm} = sylvester(B2{mm},B{mm},A_inner); % solve Sylvester equation
+                    lbfgsb_iterations{m} = [];
+                else
+                    [lbfgsb_iters(inner_iter)] = lbfgsb_update(pp,mm,Z.constrained_modes(mm),5,rho{mm}); %updates G.fac{m} with lbfgsb
+                    lbfgsb_iterations{mm} = lbfgsb_iters;
+                end
+            end
+            
+            % Update coupling factor (Delta) 
+            oldDelta = G.coupling_fac{coupl_id};
+            AA = zeros(size(Z.coupling.coupl_trafo_matrices2{coupled_modes(1)},1));
+            BB = zeros(size(Z.coupling.coupl_trafo_matrices{coupled_modes(1)},1),size(Z.coupling.coupl_trafo_matrices2{coupled_modes(1)},1));
+            for jj = coupled_modes
+                AA = AA + rho{jj}*Z.coupling.coupl_trafo_matrices2{jj}*Z.coupling.coupl_trafo_matrices2{jj}';
+                BB = BB + rho{jj}*(Z.coupling.coupl_trafo_matrices{jj}*G.fac{jj} + G.coupling_dual_fac{jj})*Z.coupling.coupl_trafo_matrices2{jj}';
+            end
+            G.coupling_fac{coupl_id} = BB/AA;
+            
+            % Update constraint factor (Z) and its dual (mu_Z) and mu_Delta
+            for mm=coupled_modes % (can be done in parallel!)
+                G.coupling_dual_fac{mm} = G.coupling_dual_fac{mm} + Z.coupling.coupl_trafo_matrices{mm}*G.fac{mm} - G.coupling_fac{Z.coupling.lin_coupled_modes(mm)}*Z.coupling.coupl_trafo_matrices2{mm}; % Update (mu_Delta)
+                if Z.constrained_modes(mm)  
+                    oldZ{mm} = update_constraint(mm,rho{mm}); %updates G.constraint_fac{mm} and G.constraint_dual_fac{mm}
+                end
+            end
+            inner_iter = inner_iter + 1; 
+            [rel_primal_res_coupling,rel_dual_res_coupling] = eval_res_ADMM_coupl_case5(coupled_modes,coupl_id,oldDelta);
+            constrained_modes = coupled_modes(logical(Z.constrained_modes(coupled_modes)));
+            if ~isempty(constrained_modes)
+                [rel_primal_res_constr,rel_dual_res_constr] = eval_res_ADMM_constr(constrained_modes,oldZ); % does this work? integrate in loop instead? (no nested function)
+            else
+               rel_primal_res_constr = 0;
+               rel_dual_res_constr =0;
+            end
+        end
+        inner_iter = inner_iter-1;
     end  
+
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [rel_primal_res_constr,rel_dual_res_constr] = eval_res_ADMM_constr(modes,oldZ)
@@ -929,7 +997,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [rel_primal_res_coupling,rel_dual_res_coupling] = eval_res_ADMM_coupl_case3(modes,coupl_id,oldDelta)
     % computes relative primal and dual residuals of ADMM iteration for factor
-    % matrices in in coupled modes connected (coupling case 2 only!)
+    % matrices in in coupled modes connected (coupling case 3 only!)
         rel_primal_res_coupling = 0;
         rel_dual_res_coupling = 0;
         for mm=modes
@@ -948,7 +1016,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [rel_primal_res_coupling,rel_dual_res_coupling] = eval_res_ADMM_coupl_case4(modes,coupl_id,oldDelta)
     % computes relative primal and dual residuals of ADMM iteration for factor
-    % matrices in in coupled modes connected (coupling case 2 only!)
+    % matrices in in coupled modes connected (coupling case 4 only!)
         rel_primal_res_coupling = 0;
         rel_dual_res_coupling = 0;
         for mm=modes
@@ -958,6 +1026,25 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                 rel_dual_res_coupling = rel_dual_res_coupling + norm((G.coupling_fac{coupl_id}-oldDelta)*Z.coupling.coupl_trafo_matrices{mm},'fro')/scaling;
             else
                 rel_dual_res_coupling = rel_dual_res_coupling + norm((G.coupling_fac{coupl_id}-oldDelta)*Z.coupling.coupl_trafo_matrices{mm},'fro');
+            end
+        end
+        rel_primal_res_coupling = rel_primal_res_coupling/length(modes);
+        rel_dual_res_coupling = rel_dual_res_coupling/length(modes);
+    end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    function [rel_primal_res_coupling,rel_dual_res_coupling] = eval_res_ADMM_coupl_case5(modes,coupl_id,oldDelta)
+    % computes relative primal and dual residuals of ADMM iteration for factor
+    % matrices in in coupled modes connected (coupling case 5 only!)
+        rel_primal_res_coupling = 0;
+        rel_dual_res_coupling = 0;
+        for mm=modes
+            rel_primal_res_coupling = rel_primal_res_coupling + norm(Z.coupling.coupl_trafo_matrices{mm}*G.fac{mm}-G.coupling_fac{coupl_id}*Z.coupling.coupl_trafo_matrices2{mm},'fro')/norm(G.fac{mm},'fro');
+            scaling = norm(G.coupling_dual_fac{mm},'fro');
+            if scaling>0
+                rel_dual_res_coupling = rel_dual_res_coupling + norm((G.coupling_fac{coupl_id}-oldDelta)*Z.coupling.coupl_trafo_matrices2{mm},'fro')/scaling;
+            else
+                rel_dual_res_coupling = rel_dual_res_coupling + norm((G.coupling_fac{coupl_id}-oldDelta)*Z.coupling.coupl_trafo_matrices2{mm},'fro');
             end
         end
         rel_primal_res_coupling = rel_primal_res_coupling/length(modes);
@@ -1072,6 +1159,9 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                         coupling_p(n) = coupling_p(n) + norm(G.fac{cmodes(jj)} - Z.coupling.coupl_trafo_matrices{cmodes(jj)}*G.coupling_fac{n},'fro')/norm(G.fac{cmodes(jj)},'fro'); %no rho!
                     case 4
                         coupling_p(n) = coupling_p(n) + norm(G.fac{cmodes(jj)} - G.coupling_fac{n}*Z.coupling.coupl_trafo_matrices{cmodes(jj)},'fro')/norm(G.fac{cmodes(jj)},'fro'); %no rho!
+                    case 5
+                        coupling_p(n) = coupling_p(n) + norm(Z.coupling.coupl_trafo_matrices{cmodes(jj)}*G.fac{cmodes(jj)} - G.coupling_fac{n}*Z.coupling.coupl_trafo_matrices2{cmodes(jj)},'fro')/norm(Z.coupling.coupl_trafo_matrices{cmodes(jj)}*G.fac{cmodes(jj)},'fro'); %no rho!
+
                 end
             end
         end
@@ -1144,6 +1234,9 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             case 4
                 function_value = function_value + rho/2*sum((x-reshape(G.coupling_fac{n}*Z.coupling.coupl_trafo_matrices{m},[],1)+G.coupling_dual_fac{m}(:)).^2);
                 gradient_vector = gradient_vector + rho*(x-reshape(G.coupling_fac{n}*Z.coupling.coupl_trafo_matrices{m},[],1)+G.coupling_dual_fac{m}(:));
+            case 5
+                function_value = function_value + rho/2*sum(sum(Z.coupling.coupl_trafo_matrices{m}*reshape(x,size(G.fac{m}))-G.coupling_fac{n}*Z.coupling.coupl_trafo_matrices2{m}+G.coupling_dual_fac{m}).^2); 
+                gradient_vector = gradient_vector + rho*reshape(Z.coupling.coupl_trafo_matrices{m}'*(Z.coupling.coupl_trafo_matrices{m}*reshape(x,size(G.fac{m}))-G.coupling_fac{n}*Z.coupling.coupl_trafo_matrices2{m}+G.coupling_dual_fac{m}),[],1);
         end
         if isfield(Z,'ridge')
             function_value = function_value + Z.ridge(m)*sum(x.^2);

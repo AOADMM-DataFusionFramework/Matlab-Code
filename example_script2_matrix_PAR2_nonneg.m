@@ -29,7 +29,7 @@ model{1} = 'CP';
 model{2} = 'PAR2';
 %% specify couplings
 coupling.lin_coupled_modes = [1 0 1 0 0]; % which modes are coupled, coupled modes get the same number (0: uncoupled)
-coupling.coupling_type = [0]; % for each coupling number in the array lin_coupled_modes, set the coupling type: 0 exact coupling, 1: HC=Delta, 2: CH=Delta, 3: C=HDelta, 4: C=DeltaH
+coupling.coupling_type = [0]; % for each coupling number in the array lin_coupled_modes, set the coupling type: 0 exact coupling, 1: HC=Delta, 2: CH=Delta, 3: C=HDelta, 4: C=DeltaH, 5: H1C=DeltaH2
 coupling.coupl_trafo_matrices = cell(5,1); % cell array with coupling transformation matrices for each mode (if any, otherwise keep empty)
 
 
@@ -192,8 +192,4 @@ sgtitle('convergence AO-ADMM')
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [output] = truncated_randn(x,y)
-output = randn(x,y);
-output(output<0) = 0;
-end
+

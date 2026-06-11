@@ -10,6 +10,7 @@ function  [A] = init_coupled_AOADMM_CMTF(Z,varargin)
 %% Parse inputs
 params = inputParser;
 params.addParameter('init_options', '', @isstruct);
+params.addParameter('Delta', '', @iscell);
 
 params.parse(varargin{:});
 sz         = Z.size;    %size of data sets
@@ -22,6 +23,7 @@ coupling   = Z.coupling;   % how the modes sets are coupled
 model      = Z.model;
 constrained_modes = Z.constrained_modes; % which factors are constrained
 constraints = Z.constraints;
+Delta = params.Results.Delta;
 
 coupled_modes = coupling.lin_coupled_modes;
 coupling_type = coupling.coupling_type;
@@ -157,6 +159,11 @@ for n = 1:nb_couplings
              A.coupling_fac{n} = rand(size(A.fac{mode1},1),size(coupl_trafo_matrices{mode1},1));
              for m=cmodes
                  A.coupling_dual_fac{m} = rand(size(A.fac{m}));
+             end
+        case 5
+            A.coupling_fac{n} = rand(size(Delta{n}));
+            for m=cmodes
+                 A.coupling_dual_fac{m} = rand(size(A.coupling_fac{n},1),size(A.fac{m},2));
              end
      end              
 end

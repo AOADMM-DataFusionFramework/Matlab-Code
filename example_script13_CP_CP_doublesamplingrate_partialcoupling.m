@@ -1,43 +1,51 @@
-%%  example script 3 AOADMM for CMTF 
-% In this example, we create a synthetic dataset consisting of one CP tensor
-% of order 3 (modes 1,2,3) and size [50,30,40] with 4 components and a matrix (modes 4,5) of size [50,70] with 3 components. They are
-% coupled in the first mode, i.e. mode 1 and 4 have 3 equal vectors. Modes
-% 1,4,5 are also generated to be non-negative.
-% Some Gaussian noise is added to the synthetic datasets.
+%%  example script 5 AOADMM for CMTF 
+% In this example, we create a synthetic dataset consisting of two CP
+% tensors of order 3 (modes 1,2,3 and modes 4,5,6) and sizes [50,30,40] and [100,70,80].
+% They are coupled in the first mode, i.e. mode 1 and 4, 
+% where it is assumed that tensor 2 was sampled at double sampling rate of that of tensor 1,
+% so only every second row of factor matrices 1 and 4 are matched (coupled).
+% Moreover, tensor 1 has rank 4 and shares 3 components with tensor 2,
+% whcih is rank 3. Tensor 2 is also non-negative.
+% Therefore, modes 1 and 4 are coupled using coupling type 5.
+% Some Gaussian noise is added to the datasets.
 % The loss functions is set to be squared Frobenius norm.
-% In the algorithm, modes 1 and 4 are coupled using coupling type 3b.
-% Non-negativity constraints are enforced for modes 1,4,5.
-
 %%
 close all
 clear all
 %%
-rng(4)
+rng(3)
 %% add AO-ADMM solver functions to path
 addpath(genpath('.\functions'))
 %% add other apckages to your path!
 addpath(genpath('...\tensor_toolbox-v3.1')) %Tensor toolbox is needed!  MATLAB Tensor Toolbox. Copyright 2017, Sandia Corporation, http://www.tensortoolbox.org/
 addpath(genpath('...\L-BFGS-B-C-master')) % LBFGS-B implementation only needed when other loss than Frobenius is used, download here: https://github.com/stephenbeckr/L-BFGS-B-C
 addpath(genpath('...\proximal_operators\code\matlab')) % Proximal operator repository needed! download here: http://proximity-operator.net/proximityoperator.html
+addpath(genpath('.\functions_for_example_scripts')) 
 %% specify synthetic data
-sz     = {50,30,40,50,70}; %size of each mode
+sz     = {50,30,40,100,70,80}; %size of each mode
 P      = 2; %number of tensors
 lambdas_data= {[1 1 1 1], [1 1 1]}; % norms of components in each data set (length of each array specifies the number of components in each dataset)
-modes  = {[1 2 3], [4 5]}; % which modes belong to which dataset: every mode should have its unique number d, sz(d) corresponds to size of that mode
-noise = 0.05; %level of noise, for gaussian noise only!
-distr_data = {@(x,y) rand(x,y), @(x,y) randn(x,y),@(x,y) randn(x,y),@(x,y) rand(x,y),@(x,y) rand(x,y)}; % function handle of distribution of data within each factor matrix /or Delta if linearly coupled, x,y are the size inputs %coupled modes need to have same distribution! If not, just the first one will be considered
+modes  = {[1 2 3], [4 5 6]}; % which modes belong to which dataset: every mode should have its unique number d, sz(d) corresponds to size of that mode
+noise = 0.1; %level of noise, for gaussian noise only!
+distr_data = {@(x,y) rand(x,y),@(x,y) randn(x,y), @(x,y) randn(x,y),@(x,y) rand(x,y),@(x,y) rand(x,y),@(x,y) rand(x,y)}; % function handle of distribution of data within each factor matrix /or Delta if linearly coupled, x,y are the size inputs %coupled modes need to have same distribution! If not, just the first one will be considered
 normalize_columns = 0; %wether or not to normalize columns of the created factor matrices, this might destroy the distribution!
 %% specify tensor model
 model{1} = 'CP';
 model{2} = 'CP';
 %% specify couplings
-coupling.lin_coupled_modes = [1 0 0 1 0]; % which modes are coupled, coupled modes get the same number (0: uncoupled)
-coupling.coupling_type = [4]; % for each coupling number in the array lin_coupled_modes, set the coupling type: 0 exact coupling, 1: HC=Delta, 2: CH=Delta, 3: C=HDelta, 4: C=DeltaH, 5: H1C=DeltaH2
-coupling.coupl_trafo_matrices = cell(5,1); % cell array with coupling transformation matrices for each mode (if any, otherwise keep empty)
-
-coupling.coupl_trafo_matrices{1} = eye(4,4);
-coupling.coupl_trafo_matrices{4} = [eye(3,3);0 0 0];
-
+coupling.lin_coupled_modes = [1 0 0 1 0 0]; % which modes are coupled, coupled modes get the same number (0: uncoupled)
+coupling.coupling_type = [5]; % for each coupling number in the array lin_coupled_modes, set the coupling type: 0 exact coupling, 1: HC=Delta, 2: CH=Delta, 3: C=HDelta, 4: C=DeltaH, 5: H1C=DeltaH2
+coupling.coupl_trafo_matrices = cell(6,1); % cell array with coupling transformation matrices for each mode (if any, otherwise keep empty)
+coupling.coupl_trafo_matrices2 = cell(6,1); % IN CASE OF COUPLING TYPE 5: another cell array with coupling transformation matrices H2 for each mode (if any, otherwise keep empty)
+% matrices for double sampling rate
+coupling.coupl_trafo_matrices{1} = eye(50,50);
+coupling.coupl_trafo_matrices{4} = zeros(50,100);
+for i=1:50
+  coupling.coupl_trafo_matrices{4}(i,i+(i-1)) = 1; %take every second entry
+end
+%matrices for partially shared components
+coupling.coupl_trafo_matrices2{1} = eye(4,4); 
+coupling.coupl_trafo_matrices2{4} = [eye(3,3);0 0 0];
 %% set the fitting function for each dataset: 'Frobenius' for squared
 % Frobenius norm, 'KL' for KL divergence, IS for Itakura-Saito, 'beta' for other beta divergences (give beta in loss_function_param),...more todo
 loss_function{1} = 'Frobenius';
@@ -54,14 +62,14 @@ init_options.distr = distr_data; % distribution of the initial factor matrices a
 init_options.normalize = 1; % wether or not to normalize the columns of the initial factor matrices (might destroy the distribution)
 
 %% set constraints
-constrained_modes = [1 0 0 1 1]; % 1 if the mode is constrained in some way, 0 otherwise, put the same for coupled modes!
+constrained_modes = [1 0 0 1 1 1]; % 1 if the mode is constrained in some way, 0 otherwise, put the same for coupled modes!
 
 constraints = cell(length(constrained_modes),1); % cell array of length number of modes containing the type of constraint or regularization for each mode, empty if no constraint
 %specify constraints-regularizations for each mode, find the options in the file "List of constraints and regularizations.txt"
 constraints{1} = {'non-negativity'} ;% non-negativity
 constraints{4} = {'non-negativity'}; % non-negativity
 constraints{5} = {'non-negative l2-sphere',1}; % non-negativity and column-normalization (NOT CONVEX!)
-
+constraints{6} = {'non-negative l2-sphere',1}; % non-negativity and column-normalization (NOT CONVEX!)
 %% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty), will automatically be added to function value computation
 %Z.ridge = [1e-3,1e-3,1e-3,1e-3,1e-3,1e-3]; % penalties for each mode 
 %% set weights
@@ -87,7 +95,7 @@ Z.constraints = constraints;
 Z.weights = weights;
 
 %% create data
-[X, Atrue, Deltatrue,sigmatrue] = create_coupled_data('model', model, 'size', sz, 'modes', modes, 'lambdas', lambdas_data, 'noise', noise,'coupling',coupling,'normalize_columns',normalize_columns,'distr_data',distr_data,'loss_function',Z.loss_function); %create data
+[X, Atrue, Deltatrue] = create_coupled_data_example13('model', model, 'size', sz, 'modes', modes, 'lambdas', lambdas_data, 'noise', noise,'coupling',coupling,'normalize_columns',normalize_columns,'distr_data',distr_data,'loss_function',Z.loss_function); %create data
 %% create Z.object and normalize
 normZ=cell(P,1);
 for p=1:P
@@ -108,17 +116,16 @@ for p=1:P
 end
 
 %% Create random initialization
-
-rng(13);
-init_fac = init_coupled_AOADMM_CMTF(Z,'init_options', init_options);
+rng(1)
+init_fac = init_coupled_AOADMM_CMTF(Z,'init_options', init_options, 'Delta', Deltatrue);
 
 %% set options 
 
 options.Display ='iter'; %  set to 'iter' or 'final' or 'no'
 options.DisplayIters = 10;
-options.MaxOuterIters = 8000;
+options.MaxOuterIters = 4000;
 options.MaxInnerIters = 5;
-options.AbsFuncTol   = 1e-6;
+options.AbsFuncTol   = 1e-4;
 options.OuterRelTol = 1e-8;
 options.innerRelPrTol_coupl = 1e-3;
 options.innerRelPrTol_constr = 1e-3;
@@ -168,13 +175,13 @@ legend('function value','difference coupling','difference constraints')
 
 markers = {'+','o','*','x','^','v','s','d','>','<','p','h'};
 subplot(1,3,3)
-for i=1:5
+for i=1:6
     plot(out.innerIters(i,:),markers{i})
     hold on
 end
 xlabel('outer iteration')
 ylabel('inner iterations')
-legend('mode 1', 'mode 2','mode 3','mode 4','mode 5')
+legend('mode 1', 'mode 2','mode 3','mode 4','mode 5','mode 6')
 sgtitle('convergence AO-ADMM')
 
 
