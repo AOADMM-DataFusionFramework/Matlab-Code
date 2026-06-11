@@ -13,7 +13,7 @@
 close all
 clear all
 %%
-rng(2)
+rng(3)
 %% add AO-ADMM solver functions to path
 addpath(genpath('.\functions'))
 %% add other apckages to your path!
@@ -26,8 +26,8 @@ sz     = {50,30,40,100,70,80}; %size of each mode
 P      = 2; %number of tensors
 lambdas_data= {[1 1 1 1], [1 1 1]}; % norms of components in each data set (length of each array specifies the number of components in each dataset)
 modes  = {[1 2 3], [4 5 6]}; % which modes belong to which dataset: every mode should have its unique number d, sz(d) corresponds to size of that mode
-noise = 0.01; %level of noise, for gaussian noise only!
-distr_data = {@(x,y) randn(x,y),@(x,y) randn(x,y), @(x,y) randn(x,y),@(x,y) randn(x,y),@(x,y) randn(x,y),@(x,y) randn(x,y)}; % function handle of distribution of data within each factor matrix /or Delta if linearly coupled, x,y are the size inputs %coupled modes need to have same distribution! If not, just the first one will be considered
+noise = 0.1; %level of noise, for gaussian noise only!
+distr_data = {@(x,y) rand(x,y),@(x,y) randn(x,y), @(x,y) randn(x,y),@(x,y) rand(x,y),@(x,y) rand(x,y),@(x,y) rand(x,y)}; % function handle of distribution of data within each factor matrix /or Delta if linearly coupled, x,y are the size inputs %coupled modes need to have same distribution! If not, just the first one will be considered
 normalize_columns = 0; %wether or not to normalize columns of the created factor matrices, this might destroy the distribution!
 %% specify tensor model
 model{1} = 'CP';
@@ -62,14 +62,16 @@ init_options.distr = distr_data; % distribution of the initial factor matrices a
 init_options.normalize = 1; % wether or not to normalize the columns of the initial factor matrices (might destroy the distribution)
 
 %% set constraints
-constrained_modes = [0 0 0 0 0 0]; % 1 if the mode is constrained in some way, 0 otherwise, put the same for coupled modes!
+constrained_modes = [1 0 0 1 1 1]; % 1 if the mode is constrained in some way, 0 otherwise, put the same for coupled modes!
 
 constraints = cell(length(constrained_modes),1); % cell array of length number of modes containing the type of constraint or regularization for each mode, empty if no constraint
 %specify constraints-regularizations for each mode, find the options in the file "List of constraints and regularizations.txt"
-
-
+constraints{1} = {'non-negativity'} ;% non-negativity
+constraints{4} = {'non-negativity'}; % non-negativity
+constraints{5} = {'non-negative l2-sphere',1}; % non-negativity and column-normalization (NOT CONVEX!)
+constraints{6} = {'non-negative l2-sphere',1}; % non-negativity and column-normalization (NOT CONVEX!)
 %% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty), will automatically be added to function value computation
-Z.ridge = [1e-3,1e-3,1e-3,1e-3,1e-3,1e-3]; % penalties for each mode 
+%Z.ridge = [1e-3,1e-3,1e-3,1e-3,1e-3,1e-3]; % penalties for each mode 
 %% set weights
 weights = [1/2 1/2]; %weight w_i for each data set
 
@@ -114,6 +116,7 @@ for p=1:P
 end
 
 %% Create random initialization
+rng(1)
 init_fac = init_coupled_AOADMM_CMTF(Z,'init_options', init_options, 'Delta', Deltatrue);
 
 %% set options 
@@ -153,28 +156,32 @@ subplot(1,3,1)
 semilogy([0:out.OuterIterations],out.func_val_conv)
 hold on
 semilogy([0:out.OuterIterations],out.func_coupl_conv,'--')
+hold on
+semilogy([0:out.OuterIterations],out.func_constr_conv,':')
 xlabel('iterations')
 ylabel('function value')
-legend('function value','difference coupling')
+legend('function value','difference coupling','difference constraints')
 
 
 subplot(1,3,2)
 semilogy(out.time_at_it,out.func_val_conv)
 hold on
 semilogy(out.time_at_it,out.func_coupl_conv,'--')
+hold on
+semilogy(out.time_at_it,out.func_constr_conv,':')
 xlabel('time in seconds')
 ylabel('function value')
-legend('function value','difference coupling')
+legend('function value','difference coupling','difference constraints')
 
 markers = {'+','o','*','x','^','v','s','d','>','<','p','h'};
 subplot(1,3,3)
-for i=1:5
+for i=1:6
     plot(out.innerIters(i,:),markers{i})
     hold on
 end
 xlabel('outer iteration')
 ylabel('inner iterations')
-legend('mode 1', 'mode 2','mode 3','mode 4','mode 5')
+legend('mode 1', 'mode 2','mode 3','mode 4','mode 5','mode 6')
 sgtitle('convergence AO-ADMM')
 
 
