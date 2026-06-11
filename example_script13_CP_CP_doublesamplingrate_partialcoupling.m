@@ -17,9 +17,9 @@ rng(3)
 %% add AO-ADMM solver functions to path
 addpath(genpath('.\functions'))
 %% add other apckages to your path!
-addpath(genpath('C:\Users\carla\Documents\MATLAB\toolbox\tensor_toolbox-v3.1')) %Tensor toolbox is needed!  MATLAB Tensor Toolbox. Copyright 2017, Sandia Corporation, http://www.tensortoolbox.org/
+addpath(genpath('...\tensor_toolbox-v3.1')) %Tensor toolbox is needed!  MATLAB Tensor Toolbox. Copyright 2017, Sandia Corporation, http://www.tensortoolbox.org/
 addpath(genpath('...\L-BFGS-B-C-master')) % LBFGS-B implementation only needed when other loss than Frobenius is used, download here: https://github.com/stephenbeckr/L-BFGS-B-C
-addpath(genpath('C:\Users\carla\Documents\MATLAB\toolbox\proximal_operators\code\matlab')) % Proximal operator repository needed! download here: http://proximity-operator.net/proximityoperator.html
+addpath(genpath('...\proximal_operators\code\matlab')) % Proximal operator repository needed! download here: http://proximity-operator.net/proximityoperator.html
 addpath(genpath('.\functions_for_example_scripts')) 
 %% specify synthetic data
 sz     = {50,30,40,100,70,80}; %size of each mode

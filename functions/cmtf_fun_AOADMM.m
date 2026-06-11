@@ -881,7 +881,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                     G.fac{mm} = sylvester(B2{mm},B{mm},A_inner); % solve Sylvester equation
                     lbfgsb_iterations{m} = [];
                 else
-                    [lbfgsb_iters(inner_iter)] = lbfgsb_update(pp,mm,Z.constrained_modes(mm),1,rho{mm}); %updates G.fac{m} with lbfgsb
+                    [lbfgsb_iters(inner_iter)] = lbfgsb_update(pp,mm,Z.constrained_modes(mm),5,rho{mm}); %updates G.fac{m} with lbfgsb
                     lbfgsb_iterations{mm} = lbfgsb_iters;
                 end
             end
