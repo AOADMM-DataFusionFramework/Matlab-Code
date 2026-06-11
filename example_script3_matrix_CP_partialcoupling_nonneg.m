@@ -180,8 +180,3 @@ sgtitle('convergence AO-ADMM')
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [output] = truncated_randn(x,y)
-output = randn(x,y);
-output(output<0) = 0;
-end
