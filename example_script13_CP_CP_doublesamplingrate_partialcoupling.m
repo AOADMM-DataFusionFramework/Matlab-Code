@@ -5,7 +5,7 @@
 % where it is assumed that tensor 2 was sampled at double sampling rate of that of tensor 1,
 % so only every second row of factor matrices 1 and 4 are matched (coupled).
 % Moreover, tensor 1 has rank 4 and shares 3 components with tensor 2,
-% whcih is rank 3.
+% whcih is rank 3. Tensor 2 is also non-negative.
 % Therefore, modes 1 and 4 are coupled using coupling type 5.
 % Some Gaussian noise is added to the datasets.
 % The loss functions is set to be squared Frobenius norm.
