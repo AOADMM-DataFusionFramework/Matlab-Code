@@ -4,6 +4,9 @@ function [] = check_data_input(sz,modes,lambdas,coupling,loss_function,model)
 lin_coupled_modes = coupling.lin_coupled_modes;
 coupling_type = coupling.coupling_type;
 coupl_trafo_matrices = coupling.coupl_trafo_matrices;
+if isfield(coupling,'coupl_trafo_matrices2')
+    coupl_trafo_matrices2 = coupling.coupl_trafo_matrices2;
+end
 
 max_modeid = max(cellfun(@(x) max(x), modes));
 if max_modeid ~= length(sz)
@@ -118,6 +121,32 @@ for p = 1:length(lambdas)
                         end
                         if (n~=m && size(coupl_trafo_matrices{m},1) ~=size(coupl_trafo_matrices{n},1))
                             error('Coupling transformation matrices need to have same number of rows for mode %s and mode %s.', num2str(m),num2str(n))
+                        end
+                    end
+                case 5
+                    if isempty(coupl_trafo_matrices{m})
+                        error('Coupling matrix H1 for mode %s is missing.', num2str(m))
+                    end
+                    if isempty(coupl_trafo_matrices2{m})
+                        error('Coupling matrix H2 for mode %s is missing.', num2str(m))
+                    end
+                    if size(coupl_trafo_matrices2{m},2) ~= length(lambdas{cellfun(@(x) any(ismember(x,m)), modes)}) 
+                        error('Mismatch between lambdas and number of columns of coupling matrix H2 for mode %s.', num2str(m))
+                    end
+                    for n=mode_ids
+                        if (n~=m && size(coupl_trafo_matrices2{m},1) ~=size(coupl_trafo_matrices2{n},1))
+                            error('Coupling transformation matrices H2 need to have same number of rows for mode %s and mode %s.', num2str(m),num2str(n))
+                        end
+                    end
+                    if rank(coupl_trafo_matrices{m})<size(coupl_trafo_matrices{m},1)
+                        error('Coupling matrix for mode %s is not right-invertible.', num2str(m))
+                    end
+                    if size(coupl_trafo_matrices{m},2) ~= sz{m} 
+                        error('Mismatch between sz and number of columns of coupling matrix H1 for mode %s.', num2str(m))
+                    end
+                    for n=mode_ids
+                        if (n~=m && size(coupl_trafo_matrices{m},1) ~=size(coupl_trafo_matrices{n},1))
+                            error('Coupling transformation matrices H1 need to have same number of rows for mode %s and mode %s.', num2str(m),num2str(n))
                         end
                     end
             end
