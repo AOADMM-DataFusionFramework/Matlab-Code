@@ -4,8 +4,8 @@
 % Mode 1 is constructed to be piecewise constant and regularized using total variation (TV) regularization with strength
 % 0.001. In order to make this regularization effective, modes 2 and 3 are constrained to be within the unit l2-ball.
 % For the proximal operator of TV regularization, we use the algorithm and
-% code from Laurent Condat ( “A direct algorithm for 1D total variation
-% denoising,” IEEE Signal Processing Letters, vol. 20, no. 11, pp. 1054-1057, Nov. 2013.)
+% code from Laurent Condat ( ï¿½A direct algorithm for 1D total variation
+% denoising,ï¿½ IEEE Signal Processing Letters, vol. 20, no. 11, pp. 1054-1057, Nov. 2013.)
 % The code can be downloaded here: https://lcondat.github.io/software.html
 %%
 close all
@@ -31,7 +31,7 @@ normalize_columns = 1; %wether or not to normalize columns of the created factor
 model{1} = 'CP';
 %% specify couplings
 coupling.lin_coupled_modes = [0 0 0]; % which modes are coupled, coupled modes get the same number (0: uncoupled)
-coupling.coupling_type = []; % for each coupling number in the array lin_coupled_modes, set the coupling type: 0 exact coupling, 1: HC=Delta, 2: CH=Delta, 3: C=HDelta, 4: C=DeltaH
+coupling.coupling_type = []; % for each coupling number in the array lin_coupled_modes, set the coupling type: 0 exact coupling, 1: HC=Delta, 2: CH=Delta, 3: C=HDelta, 4: C=DeltaH, 5: H1C=DeltaH2
 coupling.coupl_trafo_matrices = cell(3,1); % cell array with coupling transformation matrices for each mode (if any, otherwise keep empty)
 
 %% set the fitting function for each dataset: 'Frobenius' for squared
