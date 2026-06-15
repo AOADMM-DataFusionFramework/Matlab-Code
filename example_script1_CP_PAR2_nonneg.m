@@ -22,7 +22,7 @@ sz     = {20,30,40, 20,30*ones(1,20),20}; %size of each mode
 P      = 2; %number of tensors
 lambdas_data= {[1 1 1], [1 1 1]}; % norms of components in each data set (length of each array specifies the number of components in each dataset)
 modes  = {[1 2 3], [4 5 6]}; % which modes belong to which dataset: every mode should have its unique number d, sz(d) corresponds to size of that mode
-noise = 0; %level of noise, for gaussian noise only!
+noise = [0,0]; %level of noise for each dataset, for gaussian noise only!
 distr_data = {@(x,y) rand(x,y), @(x,y) randn(x,y),@(x,y) randn(x,y),@(x,y) rand(x,y),@(x,y) rand(x,y),@(x,y) rand(x,y)+0.1}; % function handle of distribution of data within each factor matrix /or Delta if linearly coupled, x,y are the size inputs %coupled modes need to have same distribution! If not, just the first one will be considered
 normalize_columns = 0; %wether or not to normalize columns of the created factor matrices, this might destroy the distribution!
 %% specify tensor model

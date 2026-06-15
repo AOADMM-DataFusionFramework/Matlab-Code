@@ -19,7 +19,7 @@ function  [X, A, Delta,sigma] = create_coupled_data_unimodalBks(varargin)
 params = inputParser;
 params.addParameter('size', [50 30 40 20 10], @iscell);
 params.addParameter('modes', {[1 2 3], [1 4], [1 5]}, @iscell);
-params.addOptional('noise', 0.1, @(x) x >= 0);
+params.addOptional('noise', [0.1,0.1,0.1], @(n)validateattributes(n,{'numeric'},{'nonnegative'}));
 params.addParameter('lambdas', {[1 1 1], [1 1 1], [1 1 0]}, @iscell);
 params.addParameter('distr_data',[],@iscell);
 params.addParameter('model',{'Frobenius','Frobenius','Frobenius'},@iscell);
@@ -166,7 +166,7 @@ for p = 1:P
         X{p} = full(ktensor(lambdas{p}',A(modes{p})));
         if strcmp(loss_function{p},'Frobenius')
             N    = tensor(randn(size(X{p})));
-            sigma(p) = nlevel*norm(X{p})/norm(N); %true standard deviation
+            sigma(p) = nlevel(p)*norm(X{p})/norm(N); %true standard deviation
             X{p} = X{p} + sigma(p)*N; 
         elseif strcmp(loss_function{p},'KL')
             X{p} = tensor(poissrnd(double(X{p})));
@@ -184,7 +184,7 @@ for p = 1:P
             normXk = norm(X{p}{k},'fro');
             Nk = randn(size(X{p}{k}));
             normNk = norm(Nk,'fro');
-            sigma(p,k) = nlevel*normXk/normNk;
+            sigma(p,k) = nlevel(p)*normXk/normNk;
             X{p}{k} = X{p}{k} + sigma(p,k)*Nk;
         end
     end
