@@ -14,7 +14,7 @@
 close all
 clear all
 %%
-rng("default")
+rng(5)
 %% add AO-ADMM solver functions to path
 addpath(genpath('.\functions'))
 %% add other apckages to your path!
@@ -195,6 +195,28 @@ ylabel('inner iterations')
 legend('mode 1', 'mode 2','mode 3','mode 4','mode 5','mode 6')
 sgtitle('convergence AO-ADMM')
 
+%% normalize factor vectors befor plotting
+for p=1:P
+    if strcmp(Z.model{p},'CP')
+        Zhat{p} = ktensor(Fac.fac(Z.modes{p}));
+        Zhat{p} = normalize(Zhat{p});
+    elseif strcmp(Z.model{p},'PAR2')
+        Zhat{p}.A = Fac.fac{Z.modes{p}(1)};
+        Zhat{p}.Bk = Fac.fac{Z.modes{p}(2)};
+        Zhat{p}.C = Fac.fac{Z.modes{p}(3)};
+        % normalize columns of A and B and put norms into C
+        for r=1:size(Zhat{p}.A,2)
+            normAr = norm(Zhat{p}.A(:,r),2);
+            Zhat{p}.A(:,r) = Zhat{p}.A(:,r)/normAr;
+            Zhat{p}.C(:,r) = Zhat{p}.C(:,r).*normAr;
+            for k=1:length(Zhat{p}.Bk)
+                normBrk = norm(Zhat{p}.Bk{k}(:,r),2);
+                Zhat{p}.Bk{k}(:,r) = Zhat{p}.Bk{k}(:,r)/normBrk;
+                Zhat{p}.C(k,r) = Zhat{p}.C(k,r).*normBrk;   
+            end
+        end
+    end
+end
 %%
 [fmsB1,Atrue_normalized] = score(ktensor(ones(3,1),Atrue{5}{1}),ktensor(ones(3,1),Zhat{2}.Bk{1}),'lambda_penalty',false);
 figure()
