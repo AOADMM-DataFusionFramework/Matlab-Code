@@ -1,7 +1,11 @@
 %%  example script 14 AOADMM for CMTF with Frobenius loss
 % In this example, we create a synthetic dataset consisting of one CP tensor
-% of order 3 (modes 1,2,3) and size [50,30,40] with 3 components and one
-% PARAFAC2 tensor of order 3 (modes 4,5,6) and size
+% of order 3 (modes 1,2,3) and size [20,30,40] with 3 components and one
+% PARAFAC2 tensor of order 3 (modes 4,5,6) and size [20,30,40] with 3
+% components.
+% They are linearly coupled in modes 1 and 6 (mode C of PARAFC2) using
+% coupling type 1, where tensor 1 is assumed to be sampled at double the
+% sampling rate as tensor 2.
 
 %%
 close all
