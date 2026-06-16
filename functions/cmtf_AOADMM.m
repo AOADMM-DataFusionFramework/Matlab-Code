@@ -52,15 +52,15 @@ else
     error('Initialization type not supported')
 end
 %% Couplings
-for p=1:P
-    if ~strcmp(Z.model{p}, 'CP') 
-        for m=Z.modes{p}
-            if ~isempty(Z.coupling.coupl_trafo_matrices{m})
-                error('linear couplings not yet implemented for PARAFAC2 and tPARAFAC2 models')
-            end
-        end
-    end
-end
+% for p=1:P
+%     if ~strcmp(Z.model{p}, 'CP') 
+%         for m=Z.modes{p}
+%             if ~isempty(Z.coupling.coupl_trafo_matrices{m})
+%                 error('linear couplings not yet implemented for PARAFAC2 and tPARAFAC2 models')
+%             end
+%         end
+%     end
+% end
 %% Missing data preprocessing
 % If Z.miss is provided, validate masks 
 has_missing = isfield(Z, 'miss') && any(~cellfun(@isempty, Z.miss));

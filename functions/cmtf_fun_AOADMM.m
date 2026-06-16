@@ -279,22 +279,44 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                             for m=coupled_modes
                                 p = which_p(m);
                                 if strcmp(Z.loss_function{p},'Frobenius')
-                                    B2{m} = rho{m}/2* Z.coupling.coupl_trafo_matrices{m}'*Z.coupling.coupl_trafo_matrices{m}; % precompute????
+                                    if strcmp(Z.model{p},'PAR2') && 3 == find(Z.modes{p}==m) % third Parafac2 mode
+                                        HcI = kron(Z.coupling.coupl_trafo_matrices{m},speye(size(G.fac{m},2)));
+                                        B2{m} = mean(rho{m})/2*(HcI'*HcI); %%%%%%%  mean(rho{m})/2
+                                        %B2{m} = max(rho{m})/2*(HcI'*HcI); %%%%%%%  max(rho{m})/2
+                                        B2{m} = blkdiag(B{m}{:}) + B2{m};
+                                    else
+                                        B2{m} = rho{m}/2* Z.coupling.coupl_trafo_matrices{m}'*Z.coupling.coupl_trafo_matrices{m}; % precompute????
+                                    end
                                     if Z.constrained_modes(m) %mode is constrained 
-                                        B2{m} = B2{m} + rho{m}/2*eye(size(B2{m}));
+                                        %B2{m} = B2{m} + rho{m}/2*eye(size(B2{m}));
+                                        B2{m} = B2{m} + mean(rho{m})/2*eye(size(B2{m})); %%% mean(rho{m})/2
+                                        %B2{m} = B2{m} + max(rho{m})/2*eye(size(B2{m})); %%% max(rho{m})/2
+                                    end
+                                    if strcmp(Z.model{p},'PAR2') && 3 == find(Z.modes{p}==m) % third Parafac2 mode
+                                        L{m} = chol(B2{m},'lower'); %precompute Cholesky decomposition
                                     end
                                 end
                             end
-                            [inner_iters,lbfgsb_iterations] = ADMM_coupled_case1(A,B,B2,coupled_modes,coupl_id,rho,options);
+                            [inner_iters,lbfgsb_iterations] = ADMM_coupled_case1(A,B,B2,L,coupled_modes,coupl_id,rho,options);
                         case 2
                             for m=coupled_modes
                                 p = which_p(m);
                                 if strcmp(Z.loss_function{p},'Frobenius')
-                                    B{m} = B{m} + rho{m}/2* Z.coupling.coupl_trafo_matrices{m}*Z.coupling.coupl_trafo_matrices{m}'; % precompute????; % for the coupling
-                                    if Z.constrained_modes(m) %mode is constrained
-                                        B{m} = B{m} + rho{m}/2*eye(size(B{m}));
+                                    if strcmp(Z.model{p},'PAR2') && 3 == find(Z.modes{p}==m) % third Parafac2 mode
+                                        for k=1:length(Z.size{Z.modes{p}(2)}) 
+                                            B{m}{k} = B{m}{k} + rho{m}(k)/2*Z.coupling.coupl_trafo_matrices{m}*Z.coupling.coupl_trafo_matrices{m}'; %for the coupling
+                                            if Z.constrained_modes(m) %mode is constrained
+                                               B{m}{k} = B{m}{k} + rho{m}(k)/2*eye(size(B{m}{k})); %for the constraint
+                                            end
+                                            L{m}{k} = chol(B{m}{k}','lower'); %precompute Cholesky decomposition
+                                        end
+                                    else
+                                        B{m} = B{m} + rho{m}/2* Z.coupling.coupl_trafo_matrices{m}*Z.coupling.coupl_trafo_matrices{m}'; % precompute????; % for the coupling
+                                        if Z.constrained_modes(m) %mode is constrained
+                                            B{m} = B{m} + rho{m}/2*eye(size(B{m}));
+                                        end
+                                        L{m} = chol(B{m}','lower'); %precompute Cholesky decomposition of B (only works in the chase when rho does not change between inner iterations)
                                     end
-                                    L{m} = chol(B{m}','lower'); %precompute Cholesky decomposition of B (only works in the chase when rho does not change between inner iterations)
                                 end
                             end
                             [inner_iters,lbfgsb_iterations] = ADMM_coupled_case2(A,L,coupled_modes,coupl_id,rho,options);
@@ -302,11 +324,21 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                             for m=coupled_modes
                                 p = which_p(m);
                                 if strcmp(Z.loss_function{p},'Frobenius')
-                                    B{m} = B{m} + rho{m}/2* eye(size(B{m})); % for the coupling
-                                    if Z.constrained_modes(m) %mode is constrained
-                                        B{m} = B{m} + rho{m}/2*eye(size(B{m}));
+                                    if strcmp(Z.model{p},'PAR2') && 3 == find(Z.modes{p}==m) % third Parafac2 mode
+                                        for k=1:length(Z.size{Z.modes{p}(2)}) 
+                                            B{m}{k} = B{m}{k} + rho{m}(k)/2*eye(size(B{m}{k})); %for the coupling
+                                            if Z.constrained_modes(m) %mode is constrained
+                                               B{m}{k} = B{m}{k} + rho{m}(k)/2*eye(size(B{m}{k})); %for the constraint
+                                            end
+                                            L{m}{k} = chol(B{m}{k}','lower'); %precompute Cholesky decomposition
+                                        end
+                                    else
+                                        B{m} = B{m} + rho{m}/2* eye(size(B{m})); % for the coupling
+                                        if Z.constrained_modes(m) %mode is constrained
+                                            B{m} = B{m} + rho{m}/2*eye(size(B{m}));
+                                        end
+                                        L{m} = chol(B{m}','lower'); %precompute Cholesky decomposition of B (only works in the chase when rho does not change between inner iterations)
                                     end
-                                    L{m} = chol(B{m}','lower'); %precompute Cholesky decomposition of B (only works in the chase when rho does not change between inner iterations)
                                 end
                             end
                             [inner_iters,lbfgsb_iterations] = ADMM_coupled_case3(A,L,coupled_modes,coupl_id,rho,options);
@@ -314,11 +346,21 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                             for m=coupled_modes
                                 p = which_p(m);
                                 if strcmp(Z.loss_function{p},'Frobenius')
-                                    B{m} = B{m} + rho{m}/2* eye(size(B{m})); % for the coupling
-                                    if Z.constrained_modes(m) %mode is constrained
-                                        B{m} = B{m} + rho{m}/2*eye(size(B{m}));
-                                    end
-                                    L{m} = chol(B{m}','lower'); %precompute Cholesky decomposition of B (only works in the chase when rho does not change between inner iterations)
+                                     if strcmp(Z.model{p},'PAR2') && 3 == find(Z.modes{p}==m) % third Parafac2 mode
+                                        for k=1:length(Z.size{Z.modes{p}(2)}) 
+                                            B{m}{k} = B{m}{k} + rho{m}(k)/2*eye(size(B{m}{k})); %for the coupling
+                                            if Z.constrained_modes(m) %mode is constrained
+                                               B{m}{k} = B{m}{k} + rho{m}(k)/2*eye(size(B{m}{k})); %for the constraint
+                                            end
+                                            L{m}{k} = chol(B{m}{k}','lower'); %precompute Cholesky decomposition
+                                        end
+                                    else
+                                        B{m} = B{m} + rho{m}/2* eye(size(B{m})); % for the coupling
+                                        if Z.constrained_modes(m) %mode is constrained
+                                            B{m} = B{m} + rho{m}/2*eye(size(B{m}));
+                                        end
+                                        L{m} = chol(B{m}','lower'); %precompute Cholesky decomposition of B (only works in the chase when rho does not change between inner iterations)
+                                     end
                                 end
                             end
                             [inner_iters,lbfgsb_iterations] = ADMM_coupled_case4(A,L,coupled_modes,coupl_id,rho,options);
@@ -641,7 +683,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     end  
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [inner_iter,lbfgsb_iterations] = ADMM_coupled_case1(A,B,B2,coupled_modes,coupl_id,rho,options)
+        function [inner_iter,lbfgsb_iterations] = ADMM_coupled_case1(A,B,B2,L,coupled_modes,coupl_id,rho,options)
         inner_iter = 1;
         rel_primal_res_coupling = inf;
         rel_primal_res_constr = inf;
@@ -653,11 +695,26 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             for mm=coupled_modes %update all factor matrices (can be done in parallel!)
                 pp = which_p(mm);
                 if strcmp(Z.loss_function{pp},'Frobenius')
-                    A_inner = A{mm} + rho{mm}/2*Z.coupling.coupl_trafo_matrices{mm}'*( G.coupling_fac{Z.coupling.lin_coupled_modes(mm)} - G.coupling_dual_fac{mm});
-                    if Z.constrained_modes(mm) %in case the mode is also constrained
-                        A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                    if strcmp(Z.model{pp},'PAR2')  && 3 == find(Z.modes{pp}==mm) %third Parafac2 mode
+                        A_large = [];
+                        rhoC = mean(rho{mm});
+                        %rhoC = max(rho{mm});
+                        for kk=1:length(Z.size{Z.modes{pp}(2)})
+                            A_large = [A_large;A{mm}{kk}];
+                        end
+                        A_inner = A_large + rhoC/2*HcI'*(reshape(G.coupling_fac{Z.coupling.lin_coupled_modes(mm)}' - G.coupling_dual_fac{mm}',[],1));
+                            if Z.constrained_modes(mm) %in case the mode is also constrained
+                                A_inner = A_inner+ rhoC/2*(reshape(G.constraint_fac{mm}' - G.constraint_dual_fac{mm}',[],1));
+                            end
+                        Gfacmm_vec = L{mm}'\(L{mm}\A_inner);% forward-backward substitution
+                        G.fac{mm} = reshape(Gfacmm_vec',size(G.fac{mm}'))';
+                    else
+                        A_inner = A{mm} + rho{mm}/2*Z.coupling.coupl_trafo_matrices{mm}'*( G.coupling_fac{Z.coupling.lin_coupled_modes(mm)} - G.coupling_dual_fac{mm});
+                        if Z.constrained_modes(mm) %in case the mode is also constrained
+                            A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                        end
+                        G.fac{mm} = sylvester(B2{mm},B{mm},A_inner); % solve Sylvester equation
                     end
-                    G.fac{mm} = sylvester(B2{mm},B{mm},A_inner); % solve Sylvester equation
                     lbfgsb_iterations{m} = [];
                 else
                     [lbfgsb_iters(inner_iter)] = lbfgsb_update(pp,mm,Z.constrained_modes(mm),1,rho{mm}); %updates G.fac{m} with lbfgsb
@@ -669,9 +726,13 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             oldDelta = G.coupling_fac{coupl_id};
             G.coupling_fac{coupl_id} = zeros(size(G.coupling_fac{coupl_id})); 
             sum_rho = 0;
-            for jj = coupled_modes
-                G.coupling_fac{coupl_id} = G.coupling_fac{coupl_id} + rho{jj}*(Z.coupling.coupl_trafo_matrices{jj}*G.fac{jj} + G.coupling_dual_fac{jj});
-                sum_rho = sum_rho + rho{jj};
+            for jj = coupled_modes %%% should mean(rho), bust sum(rho) converge faster
+                G.coupling_fac{coupl_id} = G.coupling_fac{coupl_id} + sum(rho{jj})*(Z.coupling.coupl_trafo_matrices{jj}*G.fac{jj} + G.coupling_dual_fac{jj});
+                sum_rho = sum_rho + sum(rho{jj});
+%                 G.coupling_fac{coupl_id} = G.coupling_fac{coupl_id} + mean(rho{jj})*(Z.coupling.coupl_trafo_matrices{jj}*G.fac{jj} + G.coupling_dual_fac{jj});
+%                 sum_rho = sum_rho + mean(rho{jj});
+%                 G.coupling_fac{coupl_id} = G.coupling_fac{coupl_id} + max(rho{jj})*(Z.coupling.coupl_trafo_matrices{jj}*G.fac{jj} + G.coupling_dual_fac{jj});
+%                 sum_rho = sum_rho + max(rho{jj});
             end
             G.coupling_fac{coupl_id} = 1/sum_rho.*G.coupling_fac{coupl_id};
             
@@ -709,11 +770,21 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             for mm=coupled_modes %update all factor matrices (can be done in parallel!)
                 pp = which_p(mm);
                 if strcmp(Z.loss_function{pp},'Frobenius')
-                    A_inner = A{mm} + rho{mm}/2*(G.coupling_fac{Z.coupling.lin_coupled_modes(mm)} - G.coupling_dual_fac{mm})*Z.coupling.coupl_trafo_matrices{mm}';
-                    if Z.constrained_modes(mm) %in case the mode is also constrained
-                        A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                    if strcmp(Z.model{pp},'PAR2')  && 3 == find(Z.modes{pp}==mm) %third Parafac2 mode
+                        for kk=1:length(Z.size{Z.modes{pp}(2)})
+                            A_inner = A{mm}{kk}' + rho{mm}(kk)/2*(G.coupling_fac{Z.coupling.lin_coupled_modes(mm)}(kk,:) - G.coupling_dual_fac{mm}(kk,:))*Z.coupling.coupl_trafo_matrices{mm}';
+                            if Z.constrained_modes(mm) %in case the mode is also constrained
+                                 A_inner = A_inner + rho{mm}(kk)/2*(G.constraint_fac{mm}(kk,:) - G.constraint_dual_fac{mm}(kk,:));
+                            end
+                        G.fac{mm}(kk,:) = (A_inner/L{mm}{kk}')/L{mm}{kk}; % forward-backward substitution
+                        end
+                    else
+                        A_inner = A{mm} + rho{mm}/2*(G.coupling_fac{Z.coupling.lin_coupled_modes(mm)} - G.coupling_dual_fac{mm})*Z.coupling.coupl_trafo_matrices{mm}';
+                        if Z.constrained_modes(mm) %in case the mode is also constrained
+                            A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                        end
+                        G.fac{mm} = (A_inner/L{mm}')/L{mm}; % forward-backward substitution
                     end
-                    G.fac{mm} = (A_inner/L{mm}')/L{mm}; % forward-backward substitution
                     lbfgsb_iterations{m} = [];
                 else
                    [lbfgsb_iters(inner_iter)] = lbfgsb_update(pp,mm,Z.constrained_modes(mm),2,rho{mm}); %updates G.fac{m} with lbfgsb
@@ -726,10 +797,10 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             G.coupling_fac{coupl_id} = zeros(size(G.coupling_fac{coupl_id})); 
             sum_rho = 0;
             for jj = coupled_modes
-                G.coupling_fac{coupl_id} = G.coupling_fac{coupl_id} + G.fac{jj}*Z.coupling.coupl_trafo_matrices{jj} + G.coupling_dual_fac{jj};
+                G.coupling_fac{coupl_id} = G.coupling_fac{coupl_id} + rho{jj}'.*(G.fac{jj}*Z.coupling.coupl_trafo_matrices{jj} + G.coupling_dual_fac{jj});
                 sum_rho = sum_rho + rho{jj};
             end
-            G.coupling_fac{coupl_id} = 1/sum_rho.*G.coupling_fac{coupl_id};
+            G.coupling_fac{coupl_id} = 1./sum_rho'.*G.coupling_fac{coupl_id};
             
             % Update constraint factor (Z) and its dual (mu_Z) and mu_Delta
             for mm=coupled_modes % (can be done in parallel!)
@@ -764,11 +835,21 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             for mm=coupled_modes %update all factor matrices (can be done in parallel!)
                 pp = which_p(mm);
                 if strcmp(Z.loss_function{pp},'Frobenius')
-                    A_inner = A{mm} + rho{mm}/2*(Z.coupling.coupl_trafo_matrices{mm}* G.coupling_fac{Z.coupling.lin_coupled_modes(mm)} - G.coupling_dual_fac{mm});
-                    if Z.constrained_modes(mm) %in case the mode is also constrained
-                        A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                    if strcmp(Z.model{pp},'PAR2')  && 3 == find(Z.modes{pp}==mm) %third Parafac2 mode
+                        for kk=1:length(Z.size{Z.modes{pp}(2)})
+                            A_inner = A{mm}{kk}' + rho{mm}(kk)/2*(Z.coupling.coupl_trafo_matrices{mm}(kk,:)*G.coupling_fac{Z.coupling.lin_coupled_modes(mm)} - G.coupling_dual_fac{mm}(kk,:));
+                            if Z.constrained_modes(mm) %in case the mode is also constrained
+                                 A_inner = A_inner + rho{mm}(kk)/2*(G.constraint_fac{mm}(kk,:) - G.constraint_dual_fac{mm}(kk,:));
+                            end
+                        G.fac{mm}(kk,:) = (A_inner/L{mm}{kk}')/L{mm}{kk}; % forward-backward substitution
+                        end
+                    else
+                        A_inner = A{mm} + rho{mm}/2*(Z.coupling.coupl_trafo_matrices{mm}* G.coupling_fac{Z.coupling.lin_coupled_modes(mm)} - G.coupling_dual_fac{mm});
+                        if Z.constrained_modes(mm) %in case the mode is also constrained
+                            A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                        end
+                        G.fac{mm} = (A_inner/L{mm}')/L{mm}; % forward-backward substitution
                     end
-                    G.fac{mm} = (A_inner/L{mm}')/L{mm}; % forward-backward substitution
                     lbfgsb_iterations{m} = [];
                 else
                     [lbfgsb_iters(inner_iter)] = lbfgsb_update(pp,mm,Z.constrained_modes(mm),3,rho{mm}); %updates G.fac{m} with lbfgsb
@@ -778,11 +859,12 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             
             % Update coupling factor (Delta) 
             oldDelta = G.coupling_fac{coupl_id};
+            oldDelta = G.coupling_fac{coupl_id};
             AA = zeros(size(Z.coupling.coupl_trafo_matrices{coupled_modes(1)},2));
             BB = zeros(size(Z.coupling.coupl_trafo_matrices{coupled_modes(1)},2),size(G.fac{coupled_modes(1)},2));
             for jj = coupled_modes
-                AA = AA + rho{jj}*Z.coupling.coupl_trafo_matrices{jj}'*Z.coupling.coupl_trafo_matrices{jj};
-                BB = BB + rho{jj}*Z.coupling.coupl_trafo_matrices{jj}'*(G.fac{jj} + G.coupling_dual_fac{jj});
+                AA = AA + Z.coupling.coupl_trafo_matrices{jj}'*(rho{jj}'.*Z.coupling.coupl_trafo_matrices{jj});
+                BB = BB + Z.coupling.coupl_trafo_matrices{jj}'*(rho{jj}'.*(G.fac{jj} + G.coupling_dual_fac{jj}));
             end
             G.coupling_fac{coupl_id} = AA\BB;
             
@@ -819,11 +901,21 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             for mm=coupled_modes %update all factor matrices (can be done in parallel!)
                 pp = which_p(mm);
                 if strcmp(Z.loss_function{pp},'Frobenius')
-                    A_inner = A{mm} + rho{mm}/2*(G.coupling_fac{Z.coupling.lin_coupled_modes(mm)}*Z.coupling.coupl_trafo_matrices{mm} - G.coupling_dual_fac{mm});
-                    if Z.constrained_modes(mm) %in case the mode is also constrained
-                        A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                    if strcmp(Z.model{pp},'PAR2')  && 3 == find(Z.modes{pp}==mm) %third Parafac2 mode
+                        for kk=1:length(Z.size{Z.modes{pp}(2)})
+                            A_inner = A{mm}{kk}' + rho{mm}(kk)/2*(G.coupling_fac{Z.coupling.lin_coupled_modes(mm)}(kk,:)*Z.coupling.coupl_trafo_matrices{mm} - G.coupling_dual_fac{mm}(kk,:));
+                            if Z.constrained_modes(mm) %in case the mode is also constrained
+                                 A_inner = A_inner + rho{mm}(kk)/2*(G.constraint_fac{mm}(kk,:) - G.constraint_dual_fac{mm}(kk,:));
+                            end
+                        G.fac{mm}(kk,:) = (A_inner/L{mm}{kk}')/L{mm}{kk}; % forward-backward substitution
+                        end
+                    else
+                        A_inner = A{mm} + rho{mm}/2*(G.coupling_fac{Z.coupling.lin_coupled_modes(mm)}*Z.coupling.coupl_trafo_matrices{mm} - G.coupling_dual_fac{mm});
+                        if Z.constrained_modes(mm) %in case the mode is also constrained
+                            A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                        end
+                        G.fac{mm} = (A_inner/L{mm}')/L{mm}; % forward-backward substitution
                     end
-                    G.fac{mm} = (A_inner/L{mm}')/L{mm}; % forward-backward substitution
                     lbfgsb_iterations{m} = [];
                 else
                     [lbfgsb_iters(inner_iter)] = lbfgsb_update(pp,mm,Z.constrained_modes(mm),4,rho{mm}); %updates G.fac{m} with lbfgsb
@@ -833,13 +925,30 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             
             % Update coupling factor (Delta) 
             oldDelta = G.coupling_fac{coupl_id};
+            PAR2_flag = 0;
             AA = zeros(size(Z.coupling.coupl_trafo_matrices{coupled_modes(1)},1));
             BB = zeros(size(G.fac{coupled_modes(1)},1),size(Z.coupling.coupl_trafo_matrices{coupled_modes(1)},1));
             for jj = coupled_modes
-                AA = AA + rho{jj}*Z.coupling.coupl_trafo_matrices{jj}*Z.coupling.coupl_trafo_matrices{jj}';
-                BB = BB + rho{jj}*(G.fac{jj} + G.coupling_dual_fac{jj})*Z.coupling.coupl_trafo_matrices{jj}';
+                pp = which_p(jj);
+                if strcmp(Z.model{pp},'PAR2')  && 3 == find(Z.modes{pp}==jj) %third Parafac2 mode
+                    PAR2_flag = 1;
+                    AA_PAR2 = cell(length(Z.size{Z.modes{pp}(2)}));
+                    AAA = Z.coupling.coupl_trafo_matrices{jj}*Z.coupling.coupl_trafo_matrices{jj}';
+                    for kk=1:length(Z.size{Z.modes{pp}(2)})
+                        AA_PAR2{kk} = rho{jj}(kk)*AAA;
+                    end
+                else
+                    AA = AA + rho{jj}*Z.coupling.coupl_trafo_matrices{jj}*Z.coupling.coupl_trafo_matrices{jj}';
+                end
+                    BB = BB + rho{jj}'.*(G.fac{jj} + G.coupling_dual_fac{jj})*Z.coupling.coupl_trafo_matrices{jj}';
             end
-            G.coupling_fac{coupl_id} = BB/AA;
+            if PAR2_flag
+                for kk=1:size(G.coupling_fac{coupl_id},1)
+                    G.coupling_fac{coupl_id}(kk,:) = BB(kk,:)/(AA+AA_PAR2{kk});
+                end
+            else
+                G.coupling_fac{coupl_id} = BB/AA;
+            end
             
             % Update constraint factor (Z) and its dual (mu_Z) and mu_Delta
             for mm=coupled_modes % (can be done in parallel!)
