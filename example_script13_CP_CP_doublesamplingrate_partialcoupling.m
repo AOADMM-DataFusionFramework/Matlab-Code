@@ -13,7 +13,7 @@
 close all
 clear all
 %%
-rng(3)
+rng(4)
 %% add AO-ADMM solver functions to path
 addpath(genpath('.\functions'))
 %% add other apckages to your path!
@@ -26,7 +26,7 @@ sz     = {50,30,40,100,70,80}; %size of each mode
 P      = 2; %number of tensors
 lambdas_data= {[1 1 1 1], [1 1 1]}; % norms of components in each data set (length of each array specifies the number of components in each dataset)
 modes  = {[1 2 3], [4 5 6]}; % which modes belong to which dataset: every mode should have its unique number d, sz(d) corresponds to size of that mode
-noise = [0.1,0.1]; %level of noise for each dataset, for gaussian noise only!
+noise = [0,0]; %level of noise for each dataset, for gaussian noise only!
 distr_data = {@(x,y) rand(x,y),@(x,y) randn(x,y), @(x,y) randn(x,y),@(x,y) rand(x,y),@(x,y) rand(x,y),@(x,y) rand(x,y)}; % function handle of distribution of data within each factor matrix /or Delta if linearly coupled, x,y are the size inputs %coupled modes need to have same distribution! If not, just the first one will be considered
 normalize_columns = 0; %wether or not to normalize columns of the created factor matrices, this might destroy the distribution!
 %% specify tensor model
@@ -68,8 +68,8 @@ constraints = cell(length(constrained_modes),1); % cell array of length number o
 %specify constraints-regularizations for each mode, find the options in the file "List of constraints and regularizations.txt"
 constraints{1} = {'non-negativity'} ;% non-negativity
 constraints{4} = {'non-negativity'}; % non-negativity
-constraints{5} = {'non-negative l2-sphere',1}; % non-negativity and column-normalization (NOT CONVEX!)
-constraints{6} = {'non-negative l2-sphere',1}; % non-negativity and column-normalization (NOT CONVEX!)
+constraints{5} = {'non-negativity'};%{'non-negative l2-sphere',1}; % non-negativity and column-normalization (NOT CONVEX!)
+constraints{6} = {'non-negativity'};%{'non-negative l2-sphere',1}; % non-negativity and column-normalization (NOT CONVEX!)
 %% add optional ridge regularization performed via primal variable updates, not proximal operators (for no ridge leave field empty), will automatically be added to function value computation
 %Z.ridge = [1e-3,1e-3,1e-3,1e-3,1e-3,1e-3]; % penalties for each mode 
 %% set weights
