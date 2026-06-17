@@ -368,13 +368,25 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
                             for m=coupled_modes
                                 p = which_p(m);
                                 if strcmp(Z.loss_function{p},'Frobenius')
-                                    B2{m} = rho{m}/2* Z.coupling.coupl_trafo_matrices{m}'*Z.coupling.coupl_trafo_matrices{m}; % precompute????
+                                    if strcmp(Z.model{p},'PAR2') && 3 == find(Z.modes{p}==m) % third Parafac2 mode
+                                        HcI = kron(Z.coupling.coupl_trafo_matrices{m},speye(size(G.fac{m},2)));
+                                        B2{m} = mean(rho{m})/2*(HcI'*HcI); %%%%%%%  mean(rho{m})/2
+                                        %B2{m} = max(rho{m})/2*(HcI'*HcI); %%%%%%%  max(rho{m})/2
+                                        B2{m} = blkdiag(B{m}{:}) + B2{m};
+                                    else
+                                        B2{m} = rho{m}/2* Z.coupling.coupl_trafo_matrices{m}'*Z.coupling.coupl_trafo_matrices{m}; % precompute????
+                                    end
                                     if Z.constrained_modes(m) %mode is constrained 
-                                        B2{m} = B2{m} + rho{m}/2*eye(size(B2{m}));
+                                        %B2{m} = B2{m} + rho{m}/2*eye(size(B2{m}));
+                                        B2{m} = B2{m} + mean(rho{m})/2*eye(size(B2{m})); %%% mean(rho{m})/2
+                                        %B2{m} = B2{m} + max(rho{m})/2*eye(size(B2{m})); %%% max(rho{m})/2
+                                    end
+                                    if strcmp(Z.model{p},'PAR2') && 3 == find(Z.modes{p}==m) % third Parafac2 mode
+                                        L{m} = chol(B2{m},'lower'); %precompute Cholesky decomposition
                                     end
                                 end
                             end
-                            [inner_iters,lbfgsb_iterations] = ADMM_coupled_case5(A,B,B2,coupled_modes,coupl_id,rho,options);
+                            [inner_iters,lbfgsb_iterations] = ADMM_coupled_case5(A,B,B2,L,coupled_modes,coupl_id,rho,options);
 
                     end
                     out.innerIters(coupled_modes,iter)= inner_iters;
@@ -971,7 +983,7 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [inner_iter,lbfgsb_iterations] = ADMM_coupled_case5(A,B,B2,coupled_modes,coupl_id,rho,options)
+        function [inner_iter,lbfgsb_iterations] = ADMM_coupled_case5(A,B,B2,L,coupled_modes,coupl_id,rho,options)
         inner_iter = 1;
         rel_primal_res_coupling = inf;
         rel_primal_res_constr = inf;
@@ -983,27 +995,64 @@ function [G,out] = cmtf_fun_AOADMM(Z,Znorm_const, G,fh,gh,lscalar,uscalar,option
             for mm=coupled_modes %update all factor matrices (can be done in parallel!)
                 pp = which_p(mm);
                 if strcmp(Z.loss_function{pp},'Frobenius')
-                    A_inner = A{mm} + rho{mm}/2*Z.coupling.coupl_trafo_matrices{mm}'*( G.coupling_fac{Z.coupling.lin_coupled_modes(mm)}*Z.coupling.coupl_trafo_matrices2{mm} - G.coupling_dual_fac{mm});
-                    if Z.constrained_modes(mm) %in case the mode is also constrained
-                        A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                    if strcmp(Z.model{pp},'PAR2')  && 3 == find(Z.modes{pp}==mm) %third Parafac2 mode
+                        A_large = [];
+                        rhoC = mean(rho{mm});
+                        %rhoC = max(rho{mm});
+                        for kk=1:length(Z.size{Z.modes{pp}(2)})
+                            A_large = [A_large;A{mm}{kk}];
+                        end
+                        A_inner = A_large + rhoC/2*HcI'*(reshape((G.coupling_fac{Z.coupling.lin_coupled_modes(mm)}*Z.coupling.coupl_trafo_matrices2{mm})' - G.coupling_dual_fac{mm}',[],1));
+                            if Z.constrained_modes(mm) %in case the mode is also constrained
+                                A_inner = A_inner+ rhoC/2*(reshape(G.constraint_fac{mm}' - G.constraint_dual_fac{mm}',[],1));
+                            end
+                        Gfacmm_vec = L{mm}'\(L{mm}\A_inner);% forward-backward substitution
+                        G.fac{mm} = reshape(Gfacmm_vec',size(G.fac{mm}'))';
+                    else
+                        A_inner = A{mm} + rho{mm}/2*Z.coupling.coupl_trafo_matrices{mm}'*( G.coupling_fac{Z.coupling.lin_coupled_modes(mm)}*Z.coupling.coupl_trafo_matrices2{mm} - G.coupling_dual_fac{mm});
+                        if Z.constrained_modes(mm) %in case the mode is also constrained
+                            A_inner = A_inner + rho{mm}/2*(G.constraint_fac{mm} - G.constraint_dual_fac{mm});
+                        end
+                        G.fac{mm} = sylvester(B2{mm},B{mm},A_inner); % solve Sylvester equation
                     end
-                    G.fac{mm} = sylvester(B2{mm},B{mm},A_inner); % solve Sylvester equation
                     lbfgsb_iterations{m} = [];
                 else
                     [lbfgsb_iters(inner_iter)] = lbfgsb_update(pp,mm,Z.constrained_modes(mm),5,rho{mm}); %updates G.fac{m} with lbfgsb
                     lbfgsb_iterations{mm} = lbfgsb_iters;
                 end
             end
+
             
             % Update coupling factor (Delta) 
             oldDelta = G.coupling_fac{coupl_id};
             AA = zeros(size(Z.coupling.coupl_trafo_matrices2{coupled_modes(1)},1));
             BB = zeros(size(Z.coupling.coupl_trafo_matrices{coupled_modes(1)},1),size(Z.coupling.coupl_trafo_matrices2{coupled_modes(1)},1));
+            PAR2_flag = 0;
             for jj = coupled_modes
-                AA = AA + rho{jj}*Z.coupling.coupl_trafo_matrices2{jj}*Z.coupling.coupl_trafo_matrices2{jj}';
-                BB = BB + rho{jj}*(Z.coupling.coupl_trafo_matrices{jj}*G.fac{jj} + G.coupling_dual_fac{jj})*Z.coupling.coupl_trafo_matrices2{jj}';
+                rhoC = mean(rho{mm});
+                pp = which_p(jj);
+                if strcmp(Z.model{pp},'PAR2')  && 3 == find(Z.modes{pp}==jj) %third Parafac2 mode
+                    PAR2_flag = 1;
+                    AA_PAR2 = cell(length(Z.size{Z.modes{pp}(2)}));
+                    AAA = Z.coupling.coupl_trafo_matrices2{jj}*Z.coupling.coupl_trafo_matrices2{jj}';
+                    for kk=1:length(Z.size{Z.modes{pp}(2)})
+                        AA_PAR2{kk} = rho{jj}(kk)*AAA;
+                    end
+                else
+                    %AA = AA + rho{jj}*Z.coupling.coupl_trafo_matrices2{jj}*Z.coupling.coupl_trafo_matrices2{jj}';
+                    AA = AA + rhoC*Z.coupling.coupl_trafo_matrices2{jj}*Z.coupling.coupl_trafo_matrices2{jj}';
+                end
+                %BB = BB + sum(rho{jj})*(Z.coupling.coupl_trafo_matrices{jj}*G.fac{jj} + G.coupling_dual_fac{jj})*Z.coupling.coupl_trafo_matrices2{jj}';
+                BB = BB + rhoC*(Z.coupling.coupl_trafo_matrices{jj}*G.fac{jj} + G.coupling_dual_fac{jj})*Z.coupling.coupl_trafo_matrices2{jj}';
             end
-            G.coupling_fac{coupl_id} = BB/AA;
+            if PAR2_flag
+                for kk=1:size(G.coupling_fac{coupl_id},1)
+                    G.coupling_fac{coupl_id}(kk,:) = BB(kk,:)/(AA+AA_PAR2{kk});
+                end
+            else
+                G.coupling_fac{coupl_id} = BB/AA;
+            end
+       
             
             % Update constraint factor (Z) and its dual (mu_Z) and mu_Delta
             for mm=coupled_modes % (can be done in parallel!)
