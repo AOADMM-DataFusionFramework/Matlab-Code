@@ -53,8 +53,8 @@ else
 end
 %% PARAFAC2 rank and dimensions
 for p=1:P
-    R = length(init.lambdas_init{p});
     if strcmp(Z.model{p},'PAR2')
+        R = size(G.fac{Z.modes{p}(1)},2);
         Bkmode = Z.modes{p}(2);
         for k=1:length(Z.size{Bkmode})
             if Z.size{Bkmode}(k)<R
