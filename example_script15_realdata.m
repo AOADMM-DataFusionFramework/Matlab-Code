@@ -1,5 +1,14 @@
 %%  example script 15 AOADMM for CMTF 
-% 
+% In this example, a real dataset consisting of EEM, NMR and LC-MS
+% measurements is analyzed as described in
+%    C. Schenker, J. E. Cohen, E. Acar, A Flexible Optimization Framework for Regularized Matrix-Tensor 
+%    Factorizations with Linear Couplings, IEEE Journal of Selected Topics in Signal Processing, 15(3), 2021
+%
+% The three datasets are coupled using coupling case 4 to account for the
+% structure of shared/unshared components. All modes are constrained to be
+% non-negative. Frobenius norm loss is used.
+%
+% More details on the data sets are available here: https://ucphchemometrics.com/joda/
 
 %%
 close all
@@ -101,7 +110,7 @@ options.bsum = 0; % wether or not to use AO with BSUM regularization
 options.eps_log = 1e-10; % for KL divergence log(x+eps) for numerical stability
 
 %% compute
-rand_runs     = 10;
+rand_runs     = 20;
 AOADMM_maxit_reached = 0;
 for n=1:rand_runs
     %Create random initialization
@@ -145,7 +154,7 @@ for i=1:5
 end
 % what is captured by the A matrix
 K_EEM   = fixsigns(normalize(ktensor(Zhat.fac(1:3))));  
-ord_eem = [2 1 3]; %check the permutation and change accordingly
+ord_eem = [1 3 2]; %check the permutation and change accordingly
 K_EEM.U{1} = K_EEM.U{1}(:,ord_eem); 
 for r=1:size(K_EEM.U{1},2)
     subplot(3,2,r); plot(K_EEM.U{1}(:,r),'r*-'); hold on;
@@ -160,7 +169,7 @@ for i=1:5
 end
 % what is captured by the A matrix
 K_NMR   = fixsigns(normalize(ktensor(Zhat.fac(4:6))));    
-ord_nmr = [2 1 3 5 4];
+ord_nmr = [1 3 2 4 5];
 K_NMR.U{1} = K_NMR.U{1}(:,ord_nmr); 
 for r=1:size(K_NMR.U{1},2)
     subplot(3,2,r); plot(K_NMR.U{1}(:,r),'g*-'); hold on;
@@ -175,8 +184,11 @@ for i=1:5
 end
 % what is captured by the A matrix
 K_LCMS   = fixsigns(normalize(ktensor(Zhat.fac(7:8))));   
-ord_lcms = [2 1 3 4];
+ord_lcms = [1 3 2 4 5];
 Temp = K_LCMS.U{1}(:,ord_lcms); 
-for r=1:size(Temp,2)
+for r=1:4%size(Temp,2)
     subplot(3,2,r); plot(Temp(:,r),'c*-'); hold on;
 end
+subplot(3,2,6); plot(Temp(:,5),'c*-')
+title(names{i});xlabel('Mixtures');
+ylabel('C_{3,1}(:,5)', 'Interpreter','tex');
